@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
+	"sigs.k8s.io/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
 var (

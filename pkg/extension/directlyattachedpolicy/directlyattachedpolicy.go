@@ -21,9 +21,9 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/policymanager"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
+	"sigs.k8s.io/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/policymanager"
+	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
 const (

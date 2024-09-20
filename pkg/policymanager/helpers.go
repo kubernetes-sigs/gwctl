@@ -16,7 +16,7 @@ limitations under the License.
 
 package policymanager
 
-import "sigs.k8s.io/gateway-api/gwctl/pkg/common"
+import "sigs.k8s.io/gwctl/pkg/common"
 
 // ToPolicyRefs returns the Object references of all given policies. Note that
 // these are not the value of targetRef within the Policies but rather the

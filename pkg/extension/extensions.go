@@ -16,7 +16,7 @@ limitations under the License.
 
 package extension
 
-import "sigs.k8s.io/gateway-api/gwctl/pkg/topology"
+import "sigs.k8s.io/gwctl/pkg/topology"
 
 type Extension interface {
 	Execute(*topology.Graph) error

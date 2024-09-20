@@ -23,7 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/common"
 )
 
 func TestTablePrinter_printPolicy(t *testing.T) {
