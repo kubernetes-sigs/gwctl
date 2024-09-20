@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/common"
 )
 
 func TestGraph_AddNode(t *testing.T) {

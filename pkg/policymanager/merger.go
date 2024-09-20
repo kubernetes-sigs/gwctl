@@ -23,7 +23,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/common"
 )
 
 // MergePoliciesOfSimilarKind will convert a slice a policies to a map of

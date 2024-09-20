@@ -17,9 +17,9 @@ limitations under the License.
 package utils
 
 import (
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/notfoundrefvalidator"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/refgrantvalidator"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
+	"sigs.k8s.io/gwctl/pkg/extension/notfoundrefvalidator"
+	"sigs.k8s.io/gwctl/pkg/extension/refgrantvalidator"
+	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
 func AggregateAnalysisErrors(node *topology.Node) ([]error, error) {

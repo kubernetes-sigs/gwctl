@@ -24,11 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/directlyattachedpolicy"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/gatewayeffectivepolicy"
-	extensionutils "sigs.k8s.io/gateway-api/gwctl/pkg/extension/utils"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/policymanager"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
+	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
+	"sigs.k8s.io/gwctl/pkg/extension/gatewayeffectivepolicy"
+	extensionutils "sigs.k8s.io/gwctl/pkg/extension/utils"
+	"sigs.k8s.io/gwctl/pkg/policymanager"
+	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
 func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer) error {

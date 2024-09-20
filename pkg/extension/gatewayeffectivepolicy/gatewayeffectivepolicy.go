@@ -22,11 +22,11 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/directlyattachedpolicy"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/policymanager"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
-	topologygw "sigs.k8s.io/gateway-api/gwctl/pkg/topology/gateway"
+	"sigs.k8s.io/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
+	"sigs.k8s.io/gwctl/pkg/policymanager"
+	"sigs.k8s.io/gwctl/pkg/topology"
+	topologygw "sigs.k8s.io/gwctl/pkg/topology/gateway"
 )
 
 const (

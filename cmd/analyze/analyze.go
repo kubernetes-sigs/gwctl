@@ -31,16 +31,16 @@ import (
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/resource"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/directlyattachedpolicy"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/gatewayeffectivepolicy"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/notfoundrefvalidator"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/extension/refgrantvalidator"
-	extensionutils "sigs.k8s.io/gateway-api/gwctl/pkg/extension/utils"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/policymanager"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
-	topologygw "sigs.k8s.io/gateway-api/gwctl/pkg/topology/gateway"
+	"sigs.k8s.io/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/extension"
+	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
+	"sigs.k8s.io/gwctl/pkg/extension/gatewayeffectivepolicy"
+	"sigs.k8s.io/gwctl/pkg/extension/notfoundrefvalidator"
+	"sigs.k8s.io/gwctl/pkg/extension/refgrantvalidator"
+	extensionutils "sigs.k8s.io/gwctl/pkg/extension/utils"
+	"sigs.k8s.io/gwctl/pkg/policymanager"
+	"sigs.k8s.io/gwctl/pkg/topology"
+	topologygw "sigs.k8s.io/gwctl/pkg/topology/gateway"
 )
 
 func NewCmd(factory common.Factory, iostreams genericiooptions.IOStreams) *cobra.Command {

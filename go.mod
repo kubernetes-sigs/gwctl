@@ -1,4 +1,4 @@
-module sigs.k8s.io/gateway-api/gwctl
+module sigs.k8s.io/gwctl
 
 go 1.22.2
 
@@ -18,11 +18,9 @@ require (
 	k8s.io/kubectl v0.30.3
 	k8s.io/utils v0.0.0-20240423183400-0849a56e8f22
 	sigs.k8s.io/controller-runtime v0.18.4
-	sigs.k8s.io/gateway-api v1.0.0
+	sigs.k8s.io/gateway-api v1.1.0
 	sigs.k8s.io/yaml v1.4.0
 )
-
-replace sigs.k8s.io/gateway-api => ../
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
