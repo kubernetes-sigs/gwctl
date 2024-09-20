@@ -23,8 +23,8 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/utils/clock"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
+	"sigs.k8s.io/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
 type OutputFormat string

@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-import "sigs.k8s.io/gateway-api/gwctl/cmd"
+import "sigs.k8s.io/gwctl/cmd"
 
 func main() {
 	cmd.Execute()

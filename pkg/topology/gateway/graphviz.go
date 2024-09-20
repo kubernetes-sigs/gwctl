@@ -23,8 +23,8 @@ import (
 	graphviz "github.com/goccy/go-graphviz"
 	"github.com/goccy/go-graphviz/cgraph"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/topology"
+	"sigs.k8s.io/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
 // TODO:

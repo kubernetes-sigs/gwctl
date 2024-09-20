@@ -24,8 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 
-	cmdget "sigs.k8s.io/gateway-api/gwctl/cmd/get"
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
+	cmdget "sigs.k8s.io/gwctl/cmd/get"
+	"sigs.k8s.io/gwctl/pkg/common"
 )
 
 //go:embed testdata/sample1.yaml

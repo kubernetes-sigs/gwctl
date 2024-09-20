@@ -27,7 +27,7 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/utils/ptr"
 
-	"sigs.k8s.io/gateway-api/gwctl/pkg/common"
+	"sigs.k8s.io/gwctl/pkg/common"
 )
 
 func NewCmd(factory common.Factory, iostreams genericiooptions.IOStreams) *cobra.Command {
