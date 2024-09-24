@@ -25,7 +25,7 @@ about potential issues.
 2. Clone the project repository:
    
    ```bash
-   git clone https://github.com/kubernetes-sigs/gateway-api.git && cd gateway-api/gwctl
+   git clone https://github.com/kubernetes-sigs/gwctl.git && cd gwctl
    ```
 
 3. Build the project:
@@ -57,8 +57,7 @@ Kubernetes cluster.
    the `-k` kustomize option)
 
    ```bash
-   # (assumes you are inside the gwctl directory)
-   gwctl apply -k ../config/crd/experimental
+   gwctl apply -k https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental
    ```
 
 2. **Install Sample Resources**
