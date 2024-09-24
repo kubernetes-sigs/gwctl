@@ -6,7 +6,8 @@ analyze, and delete Gateway API and other Kubernetes resources. It also provides
 advanced features like visualizing relationships with DOT graphs and warning
 about potential issues.
 
-> [!NOTE] gwctl is still considered an [experimental feature of the Gateway
+> [!NOTE]
+> gwctl is still considered an [experimental feature of the Gateway
 > API](https://gateway-api.sigs.k8s.io/concepts/versioning/#release-channels-eg-experimental-standard).
 > While we iterate on the early stages of this tool, bugs and incompatible
 > changes will be more likely.
