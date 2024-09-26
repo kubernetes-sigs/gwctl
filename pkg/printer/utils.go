@@ -237,23 +237,18 @@ func (d DefaultEventFetcher) FetchEventsFor(object client.Object) ([]*corev1.Eve
 	for _, info := range infos {
 		eventObj, ok := info.Object.(*corev1.Event)
 
-		converted := false
 		if !ok {
-			// If direct conversion was not successful, attempt using unstructured.
 			obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
-			if err == nil {
-				eventObj = &corev1.Event{}
-				err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj, eventObj)
-				if err == nil {
-					converted = true
-				}
+			if err != nil {
+				klog.V(3).ErrorS(nil, err.Error(), "info.Object", info.Object)
+				return nil, fmt.Errorf("failed to convert runtime.Object to *v1.Event")
 			}
-		}
 
-		if !converted {
-			err := fmt.Errorf("failed to convert runtime.Object to *corev1.Event")
-			klog.V(3).ErrorS(nil, err.Error(), "info.Object", info.Object)
-			return nil, err
+			eventObj = &corev1.Event{}
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj, eventObj); err != nil {
+				klog.V(3).ErrorS(nil, err.Error(), "info.Object", info.Object)
+				return nil, fmt.Errorf("failed to convert runtime.Object to *v1.Event")
+			}
 		}
 
 		result = append(result, eventObj)
