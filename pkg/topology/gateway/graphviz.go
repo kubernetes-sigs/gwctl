@@ -18,6 +18,7 @@ package gateway
 
 import (
 	"bytes"
+	"context"
 	"log"
 
 	graphviz "github.com/goccy/go-graphviz"
@@ -31,7 +32,11 @@ import (
 //   - Show policy nodes. Attempt to group policy nodes along with their target
 //     nodes in a single subgraph so they get rendered closer together.
 func ToDot(gwctlGraph *topology.Graph) ([]byte, error) {
-	g := graphviz.New()
+	ctx := context.Background()
+	g, err := graphviz.New(ctx)
+	if err != nil {
+		return nil, err
+	}
 	cGraph, err := g.Graph()
 	if err != nil {
 		return nil, err
@@ -49,7 +54,7 @@ func ToDot(gwctlGraph *topology.Graph) ([]byte, error) {
 	// Create nodes.
 	for _, nodeMap := range gwctlGraph.Nodes {
 		for _, node := range nodeMap {
-			cNode, err := cGraph.CreateNode(node.GKNN().String())
+			cNode, err := cGraph.CreateNodeByName(node.GKNN().String())
 			if err != nil {
 				return nil, err
 			}
@@ -90,7 +95,7 @@ func ToDot(gwctlGraph *topology.Graph) ([]byte, error) {
 					u, v = v, u
 				}
 
-				e, err := cGraph.CreateEdge(relation.Name, u, v)
+				e, err := cGraph.CreateEdgeByName(relation.Name, u, v)
 				if err != nil {
 					return nil, err
 				}
@@ -107,7 +112,7 @@ func ToDot(gwctlGraph *topology.Graph) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := g.Render(cGraph, "dot", &buf); err != nil {
+	if err := g.Render(ctx, cGraph, "dot", &buf); err != nil {
 		return nil, err
 	}
 
