@@ -329,7 +329,33 @@ an image. Search online for "DOT graph render" to find suitable options.
 
 Here's an example of a rendered graph:
 
-![example-graph](./images/example-graph.png)
+```mermaid
+graph BT
+    GatewayClass["GatewayClass<br>foo-com-external-gateway-class"]
+    Gateway["Gateway<br>default/demo-gateway-1"]
+
+    subgraph Namespace [Namespace<br>default]
+        Gateway["Gateway<br>default/demo-gateway-1"]
+        HTTPRoute1["HTTPRoute<br>default/demo-httproute-1"]
+        HTTPRoute2["HTTPRoute<br>default/demo-httproute-2"]
+        HTTPRoute3["HTTPRoute<br>default/demo-httproute-3"]
+        HTTPRoute4["HTTPRoute<br>ns2/demo-httproute-4"]
+        Service["Service<br>default/demo-svc"]
+    end
+
+    Gateway -->|GatewayClass| GatewayClass
+    
+    HTTPRoute1 -->|ParentRef| Gateway
+    HTTPRoute2 -->|ParentRef| Gateway
+    HTTPRoute3 -->|ParentRef| Gateway
+    HTTPRoute4 -->|ParentRef| Gateway
+
+    HTTPRoute1 -->|BackendRef| Service
+    HTTPRoute2 -->|BackendRef| Service
+    HTTPRoute3 -->|BackendRef| Service
+    HTTPRoute4 -->|BackendRef| Service
+
+```
 
 ### Deleting Resources
 
