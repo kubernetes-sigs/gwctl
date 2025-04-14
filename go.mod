@@ -3,7 +3,7 @@ module sigs.k8s.io/gwctl
 go 1.22.2
 
 require (
-	github.com/evanphx/json-patch v5.9.0+incompatible
+	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/goccy/go-graphviz v0.2.9
 	github.com/google/go-cmp v0.6.0
 	github.com/spf13/cobra v1.8.1
