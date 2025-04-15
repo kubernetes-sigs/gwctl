@@ -41,7 +41,7 @@ clean:
 	rm -rf $(BIN_DIR)
 
 .PHONY: test
-test:
+test: deps
 	go test -race -count=1 ./...
 
 .PHONY: verify
