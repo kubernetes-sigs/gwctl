@@ -22,7 +22,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"sigs.k8s.io/gwctl/pkg/common"
 )
 
@@ -149,7 +148,7 @@ func mergePolicy(parent, child *Policy) (*Policy, error) {
 	result.Unstructured.SetUnstructuredContent(resultUnstructured)
 	// Merging two policies means the targetRef no longer makes any sense since
 	// since they can be conflicting. So we unset the targetRef.
-	result.TargetRef = common.GKNN{}
+	result.TargetRefs = []common.GKNN{}
 	return result, nil
 }
 

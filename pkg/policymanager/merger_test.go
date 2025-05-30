@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/gwctl/pkg/common"
 )
 
 func TestMergePoliciesOfSimilarKind(t *testing.T) {
@@ -139,6 +140,7 @@ func TestMergePoliciesOfSimilarKind(t *testing.T) {
 					},
 				},
 			},
+			TargetRefs:  []common.GKNN{},
 			Inheritable: true,
 		},
 		PolicyCrdID("TimeoutPolicy.bar.com"): {
@@ -159,6 +161,7 @@ func TestMergePoliciesOfSimilarKind(t *testing.T) {
 					},
 				},
 			},
+			TargetRefs: []common.GKNN{},
 		},
 	}
 

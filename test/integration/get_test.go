@@ -91,6 +91,25 @@ default    svc-3  Service  <unknown>
 `,
 		},
 		{
+			name:      "get policies",
+			inputArgs: []string{"policies"},
+			namespace: "test",
+			wantOut: `
+NAME      KIND                                        TARGET(S)                               POLICY TYPE  AGE
+policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       <unknown>
+`,
+		},
+		{
+			name:      "get policies -A",
+			inputArgs: []string{"policies", "-A"},
+			namespace: "", // All namespaces
+			wantOut: `
+NAME      KIND                                        TARGET(S)                               POLICY TYPE  AGE
+policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       <unknown>
+policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       <unknown>
+`,
+		},
+		{
 			name:      "describe gateways -n test",
 			inputArgs: []string{"gateways"},
 			namespace: "test",
