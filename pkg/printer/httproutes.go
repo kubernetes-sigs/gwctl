@@ -39,9 +39,9 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 	if p.table == nil {
 		var columnNames []string
 		if p.OutputFormat == OutputFormatWide {
-			columnNames = []string{"NAMESPACE", "NAME", "HOSTNAMES", "PARENT REFS", "AGE", "POLICIES"}
+			columnNames = []string{"NAMESPACE", "NAME", "HOSTNAMES", "PARENT REFS", "ACCEPTED", "RESOLVED", "AGE", "POLICIES"}
 		} else {
-			columnNames = []string{"NAMESPACE", "NAME", "HOSTNAMES", "PARENT REFS", "AGE"}
+			columnNames = []string{"NAMESPACE", "NAME", "HOSTNAMES", "PARENT REFS", "ACCEPTED", "RESOLVED", "AGE"}
 		}
 
 		p.table = &Table{
@@ -67,6 +67,53 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 
 	parentRefsCount := fmt.Sprintf("%d", len(httpRoute.Spec.ParentRefs))
 
+	// Calculate accepted status
+	acceptedStatus := "Unknown"
+	acceptedCount := 0
+	totalParents := len(httpRoute.Status.Parents)
+
+	for _, parentStatus := range httpRoute.Status.Parents {
+		for _, condition := range parentStatus.Conditions {
+			if condition.Type == "Accepted" && condition.Status == "True" {
+				acceptedCount++
+				break
+			}
+		}
+	}
+
+	if totalParents > 0 {
+		if acceptedCount == totalParents {
+			acceptedStatus = "True"
+		} else if acceptedCount > 0 {
+			acceptedStatus = "Partial"
+		} else {
+			acceptedStatus = "False"
+		}
+	}
+
+	// Calculate resolved status for backend references
+	resolvedStatus := "Unknown"
+	resolvedCount := 0
+
+	for _, parentStatus := range httpRoute.Status.Parents {
+		for _, condition := range parentStatus.Conditions {
+			if condition.Type == "ResolvedRefs" && condition.Status == "True" {
+				resolvedCount++
+				break
+			}
+		}
+	}
+
+	if totalParents > 0 {
+		if resolvedCount == totalParents {
+			resolvedStatus = "True"
+		} else if resolvedCount > 0 {
+			resolvedStatus = "Partial"
+		} else {
+			resolvedStatus = "False"
+		}
+	}
+
 	age := "<unknown>"
 	creationTimestamp := httpRoute.GetCreationTimestamp()
 	if !creationTimestamp.IsZero() {
@@ -78,6 +125,8 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 		httpRoute.GetName(),
 		hostNamesOutput,
 		parentRefsCount,
+		acceptedStatus,
+		resolvedStatus,
 		age,
 	}
 	if p.OutputFormat == OutputFormatWide {
@@ -136,9 +185,6 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	pairs = append(pairs, &DescriberKV{Key: "InheritedPolicies", Value: convertPoliciesToRefsTable(policies, true)})
 
 	// EffectivePolicies
-	if err != nil {
-		return err
-	}
 	if len(effectivePolicies.HTTPRouteEffectivePolicies) != 0 {
 		pairs = append(pairs, &DescriberKV{Key: "EffectivePolicies", Value: effectivePolicies.HTTPRouteEffectivePolicies})
 	}

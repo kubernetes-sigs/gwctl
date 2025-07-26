@@ -37,8 +37,8 @@ func TestTablePrinter_printHTTPRoute(t *testing.T) {
 	}
 
 	wantOut := `
-NAMESPACE  NAME          HOSTNAMES                 PARENT REFS  AGE
-ns-1       http-route-1  foo.com,bar.com + 5 more  1            <unknown>
+NAMESPACE  NAME          HOSTNAMES                 PARENT REFS  ACCEPTED  RESOLVED  AGE
+ns-1       http-route-1  foo.com,bar.com + 5 more  1            Unknown   Unknown   <unknown>
 `
 
 	got := common.MultiLine(out.String())
