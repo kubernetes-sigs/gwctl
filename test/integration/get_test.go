@@ -75,10 +75,10 @@ foo-com-external-gateway-class  foo.com/external-gateway-class  Unknown   <unkno
 			inputArgs: []string{"httproutes"},
 			namespace: "", // All namespaces
 			wantOut: `
-NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  AGE
-default    httproute-3  example4.com                       1            <unknown>
-test       httproute-1  demo.com                           1            <unknown>
-test       httproute-2  example.com,example2.com + 1 more  2            <unknown>
+NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+default    httproute-3  example4.com                       1            Unknown   Unknown   <unknown>
+test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
 `,
 		},
 		{
