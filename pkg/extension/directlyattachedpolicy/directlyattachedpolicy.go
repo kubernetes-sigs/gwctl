@@ -41,27 +41,29 @@ func NewExtension(policyManager *policymanager.PolicyManager) *Extension {
 func (a *Extension) Execute(graph *topology.Graph) error {
 	graph.RemoveMetadata(extensionName)
 	for _, policy := range a.policyManager.GetPolicies() {
-		gk := policy.TargetRef.GroupKind()
-		nn := policy.TargetRef.NamespacedName()
+		for _, targetRef := range policy.TargetRefs {
+			gk := targetRef.GroupKind()
+			nn := targetRef.NamespacedName()
 
-		if graph.Nodes[gk] == nil || graph.Nodes[gk][nn] == nil {
-			// This target doesn't exist in the graph, so skip the policy.
-			continue
-		}
+			if graph.Nodes[gk] == nil || graph.Nodes[gk][nn] == nil {
+				// This target doesn't exist in the graph, so skip the policy.
+				continue
+			}
 
-		node := graph.Nodes[gk][nn]
-		if node.Metadata == nil {
-			node.Metadata = map[string]any{}
-		}
-		if node.Metadata[extensionName] == nil {
-			node.Metadata[extensionName] = map[common.GKNN]*policymanager.Policy{}
-		}
+			node := graph.Nodes[gk][nn]
+			if node.Metadata == nil {
+				node.Metadata = map[string]any{}
+			}
+			if node.Metadata[extensionName] == nil {
+				node.Metadata[extensionName] = map[common.GKNN]*policymanager.Policy{}
+			}
 
-		data, err := Access(node)
-		if err != nil {
-			return err
+			data, err := Access(node)
+			if err != nil {
+				return err
+			}
+			data[policy.GKNN()] = policy
 		}
-		data[policy.GKNN()] = policy
 	}
 	return nil
 }

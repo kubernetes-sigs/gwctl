@@ -160,7 +160,7 @@ func convertPoliciesToRefsTable(policies []*policymanager.Policy, includeTarget 
 		UseSeparator: true,
 	}
 	if includeTarget {
-		table.ColumnNames = append(table.ColumnNames, "Target Kind", "Target Name")
+		table.ColumnNames = append(table.ColumnNames, "Target(s)")
 	}
 
 	for _, policy := range policies {
@@ -171,13 +171,6 @@ func convertPoliciesToRefsTable(policies []*policymanager.Policy, includeTarget 
 			policyName = fmt.Sprintf("%v/%v", ns, policyName)
 		}
 
-		targetKind := policy.TargetRef.Kind
-
-		targetName := policy.TargetRef.Name
-		if ns := policy.TargetRef.Namespace; ns != "" {
-			targetName = fmt.Sprintf("%v/%v", ns, targetName)
-		}
-
 		row := []string{
 			policyType, // Type
 			policyName, // Name
@@ -185,8 +178,7 @@ func convertPoliciesToRefsTable(policies []*policymanager.Policy, includeTarget 
 
 		if includeTarget {
 			row = append(row,
-				targetKind, // Target Kind
-				targetName, // Target Name
+				generatePolicyTargets(policy.TargetRefs),
 			)
 		}
 

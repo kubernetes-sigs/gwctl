@@ -36,7 +36,7 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 
 	if p.table == nil {
 		p.table = &Table{
-			ColumnNames:  []string{"NAME", "KIND", "TARGET NAME", "TARGET KIND", "POLICY TYPE", "AGE"},
+			ColumnNames:  []string{"NAME", "KIND", "TARGET(S)", "POLICY TYPE", "AGE"},
 			UseSeparator: false,
 		}
 	}
@@ -63,8 +63,7 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 	row := []string{
 		policy.Unstructured.GetName(),
 		kind,
-		policy.TargetRef.Name,
-		policy.TargetRef.Kind,
+		generatePolicyTargets(policy.TargetRefs),
 		policyType,
 		age,
 	}
@@ -183,4 +182,17 @@ func accessPolicyOrCRD[T any](node *topology.Node, gk schema.GroupKind) (*T, err
 		return nil, fmt.Errorf("unable to perform type assertion to %v in node %v", gk.String(), node.GKNN())
 	}
 	return data, nil
+}
+
+func generatePolicyTargets(targetRefs []common.GKNN) string {
+	switch len(targetRefs) {
+	case 0:
+		return ""
+	case 1:
+		return targetRefs[0].String()
+	case 2:
+		return fmt.Sprintf("%s, %s", targetRefs[0].String(), targetRefs[1].String())
+	default:
+		return fmt.Sprintf("%s, %s, ...", targetRefs[0].String(), targetRefs[1].String())
+	}
 }
