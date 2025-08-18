@@ -166,7 +166,7 @@ type Policy struct {
 	// TargetRefs references the target objects this policy is attached to. This
 	// only makes sense in case of a directly-attached-policy, or an
 	// unmerged-inherited-policy.
-	TargetRef common.GKNN
+	TargetRefs []common.GKNN
 	// Indicates whether the policy is supposed to be "inherited" (as opposed to
 	// "direct").
 	Inheritable bool
@@ -180,24 +180,34 @@ func ConstructPolicy(u *unstructured.Unstructured, inherited bool) (Policy, erro
 		metav1.TypeMeta   `json:",inline"`
 		metav1.ObjectMeta `json:"metadata,omitempty"`
 		Spec              struct {
-			TargetRef gatewayv1alpha2.NamespacedPolicyTargetReference
+			TargetRef  gatewayv1alpha2.NamespacedPolicyTargetReference
+			TargetRefs []gatewayv1alpha2.NamespacedPolicyTargetReference
 		}
 	}
 	structuredPolicy := &genericPolicy{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), structuredPolicy); err != nil {
 		return Policy{}, fmt.Errorf("failed to convert unstructured policy resource to structured: %v", err)
 	}
-	result.TargetRef = common.GKNN{
-		Group:     string(structuredPolicy.Spec.TargetRef.Group),
-		Kind:      string(structuredPolicy.Spec.TargetRef.Kind),
-		Namespace: structuredPolicy.GetNamespace(),
-		Name:      string(structuredPolicy.Spec.TargetRef.Name),
+
+	if structuredPolicy.Spec.TargetRef.Name != "" {
+		structuredPolicy.Spec.TargetRefs = []gatewayv1alpha2.NamespacedPolicyTargetReference{structuredPolicy.Spec.TargetRef}
 	}
-	if result.TargetRef.Namespace == "" {
-		result.TargetRef.Namespace = result.Unstructured.GetNamespace()
-	}
-	if structuredPolicy.Spec.TargetRef.Namespace != nil {
-		result.TargetRef.Namespace = string(*structuredPolicy.Spec.TargetRef.Namespace)
+
+	for _, targetRef := range structuredPolicy.Spec.TargetRefs {
+		gknn := common.GKNN{
+			Group:     string(targetRef.Group),
+			Kind:      string(targetRef.Kind),
+			Namespace: structuredPolicy.GetNamespace(),
+			Name:      string(targetRef.Name),
+		}
+		if gknn.Namespace == "" {
+			gknn.Namespace = result.Unstructured.GetNamespace()
+		}
+		if targetRef.Namespace != nil {
+			gknn.Namespace = string(*targetRef.Namespace)
+		}
+
+		result.TargetRefs = append(result.TargetRefs, gknn)
 	}
 
 	result.Inheritable = inherited
@@ -228,25 +238,31 @@ func (p Policy) IsDirect() bool {
 }
 
 func (p Policy) IsAttachedTo(objRef common.GKNN) bool {
-	if p.TargetRef.Kind == "Namespace" && p.TargetRef.Name == "" {
-		p.TargetRef.Name = "default"
+	for _, targetRef := range p.TargetRefs {
+		if targetRef.Kind == "Namespace" && targetRef.Name == "" {
+			targetRef.Name = "default"
+		}
+		if objRef.Kind == "Namespace" && objRef.Name == "" {
+			objRef.Name = "default"
+		}
+		if targetRef.Kind != "Namespace" && targetRef.Namespace == "" {
+			targetRef.Namespace = "default"
+		}
+		if objRef.Kind != "Namespace" && objRef.Namespace == "" {
+			objRef.Namespace = "default"
+		}
+		if targetRef == objRef {
+			return true
+		}
 	}
-	if objRef.Kind == "Namespace" && objRef.Name == "" {
-		objRef.Name = "default"
-	}
-	if p.TargetRef.Kind != "Namespace" && p.TargetRef.Namespace == "" {
-		p.TargetRef.Namespace = "default"
-	}
-	if objRef.Kind != "Namespace" && objRef.Namespace == "" {
-		objRef.Namespace = "default"
-	}
-	return p.TargetRef == objRef
+
+	return false
 }
 
 func (p Policy) DeepCopy() *Policy {
 	clone := &Policy{
 		Unstructured: p.Unstructured.DeepCopy(),
-		TargetRef:    p.TargetRef,
+		TargetRefs:   p.TargetRefs,
 		Inheritable:  p.Inheritable,
 	}
 	return clone
