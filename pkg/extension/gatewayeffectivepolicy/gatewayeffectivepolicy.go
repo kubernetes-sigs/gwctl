@@ -406,6 +406,10 @@ func (a *Extension) calculateEffectivePoliciesForBackends(graph *topology.Graph)
 			if err != nil {
 				return err
 			}
+			if httpRouteNodeMetadata == nil {
+				klog.V(3).InfoS("No effective policy metadata found for HTTPRoute, skipping", "httpRoute", httpRouteNode.GKNN())
+				continue
+			}
 			httpRoutePoliciesByGateway := httpRouteNodeMetadata.HTTPRouteEffectivePolicies
 
 			for gatewayID, policies := range httpRoutePoliciesByGateway {
