@@ -122,7 +122,6 @@ Annotations: null
 APIVersion: gateway.networking.k8s.io/v1
 Kind: Gateway
 Metadata:
-  creationTimestamp: null
   uid: uid-for-test-gateway-1
 Spec:
   gatewayClassName: foo-com-external-gateway-class
@@ -155,8 +154,7 @@ Labels: null
 Annotations: null
 APIVersion: gateway.networking.k8s.io/v1
 Kind: Gateway
-Metadata:
-  creationTimestamp: null
+Metadata: {}
 Spec:
   gatewayClassName: bar-com-internal-gateway-class
   listeners:
@@ -190,7 +188,6 @@ Annotations: null
 APIVersion: gateway.networking.k8s.io/v1
 Kind: Gateway
 Metadata:
-  creationTimestamp: null
   uid: uid-for-test-gateway-1
 Spec:
   gatewayClassName: foo-com-external-gateway-class
