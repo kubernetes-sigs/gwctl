@@ -180,9 +180,9 @@ func ConstructPolicy(u *unstructured.Unstructured, inherited bool) (Policy, erro
 		metav1.TypeMeta   `json:",inline"`
 		metav1.ObjectMeta `json:"metadata,omitempty"`
 		Spec              struct {
-			TargetRef  gatewayv1alpha2.NamespacedPolicyTargetReference
-			TargetRefs []gatewayv1alpha2.NamespacedPolicyTargetReference
-		}
+			TargetRef  gatewayv1alpha2.NamespacedPolicyTargetReference   `json:"targetRef,omitempty"`
+			TargetRefs []gatewayv1alpha2.NamespacedPolicyTargetReference `json:"targetRefs,omitempty"`
+		} `json:"spec"`
 	}
 	structuredPolicy := &genericPolicy{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), structuredPolicy); err != nil {
