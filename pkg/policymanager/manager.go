@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/common"
 )
 
@@ -144,15 +144,15 @@ func (p PolicyCRD) ID() PolicyCrdID {
 // IsValid return true if the PolicyCRD satisfies requirements for qualifying as
 // a Gateway Policy CRD.
 func (p PolicyCRD) IsValid() bool {
-	return p.IsInheritable() || p.IsDirect() || p.CRD.GetLabels()[gatewayv1alpha2.PolicyLabelKey] == "true"
+	return p.IsInheritable() || p.IsDirect() || p.CRD.GetLabels()[gatewayv1.PolicyLabelKey] == "true"
 }
 
 func (p PolicyCRD) IsInheritable() bool {
-	return strings.ToLower(p.CRD.GetLabels()[gatewayv1alpha2.PolicyLabelKey]) == "inherited"
+	return strings.ToLower(p.CRD.GetLabels()[gatewayv1.PolicyLabelKey]) == "inherited"
 }
 
 func (p PolicyCRD) IsDirect() bool {
-	return strings.ToLower(p.CRD.GetLabels()[gatewayv1alpha2.PolicyLabelKey]) == "direct"
+	return strings.ToLower(p.CRD.GetLabels()[gatewayv1.PolicyLabelKey]) == "direct"
 }
 
 // IsClusterScoped returns true if the CRD is cluster scoped. Such policies can
@@ -180,8 +180,8 @@ func ConstructPolicy(u *unstructured.Unstructured, inherited bool) (Policy, erro
 		metav1.TypeMeta   `json:",inline"`
 		metav1.ObjectMeta `json:"metadata,omitempty"`
 		Spec              struct {
-			TargetRef  gatewayv1alpha2.NamespacedPolicyTargetReference   `json:"targetRef,omitempty"`
-			TargetRefs []gatewayv1alpha2.NamespacedPolicyTargetReference `json:"targetRefs,omitempty"`
+			TargetRef  gatewayv1.NamespacedPolicyTargetReference   `json:"targetRef,omitempty"`
+			TargetRefs []gatewayv1.NamespacedPolicyTargetReference `json:"targetRefs,omitempty"`
 		} `json:"spec"`
 	}
 	structuredPolicy := &genericPolicy{}
@@ -190,7 +190,7 @@ func ConstructPolicy(u *unstructured.Unstructured, inherited bool) (Policy, erro
 	}
 
 	if structuredPolicy.Spec.TargetRef.Name != "" {
-		structuredPolicy.Spec.TargetRefs = []gatewayv1alpha2.NamespacedPolicyTargetReference{structuredPolicy.Spec.TargetRef}
+		structuredPolicy.Spec.TargetRefs = []gatewayv1.NamespacedPolicyTargetReference{structuredPolicy.Spec.TargetRef}
 	}
 
 	for _, targetRef := range structuredPolicy.Spec.TargetRefs {
