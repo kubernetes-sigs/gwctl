@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -153,10 +154,17 @@ func mustRestMapper(t *testing.T, infos []*resource.Info) meta.RESTMapper {
 		})
 	}
 	for groupVersion, apiResources := range crdResourcesByGroupVersion {
-		resourceList = append(resourceList, &metav1.APIResourceList{
-			GroupVersion: groupVersion,
-			APIResources: apiResources,
+		idx := slices.IndexFunc(resourceList, func(list *metav1.APIResourceList) bool {
+			return list.GroupVersion == groupVersion
 		})
+		if idx >= 0 {
+			resourceList[idx].APIResources = append(resourceList[idx].APIResources, apiResources...)
+		} else {
+			resourceList = append(resourceList, &metav1.APIResourceList{
+				GroupVersion: groupVersion,
+				APIResources: apiResources,
+			})
+		}
 	}
 
 	fakeDiscoveryClient := &fakediscovery.FakeDiscovery{
