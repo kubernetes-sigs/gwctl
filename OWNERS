@@ -2,10 +2,12 @@
 
 approvers:
   - gauravkghildiyal
-  - mlavacca
   - robscott
   - shaneutt
   - youngnick
 
 reviewers:
   - guicassolato
+
+emeritus_approvers:
+  - mlavacca
