@@ -13,7 +13,20 @@ about potential issues.
 > changes will be more likely.
 
 ## Installation
+### Installing With A Package Manager 
+1. On macOS or Linux, you can install gwctl via Homebrew:
 
+   ```shell
+   brew install gwctl
+   ```
+
+2. Run gwctl:
+   
+   ```shell
+   gwctl help
+   ```
+
+### Installing From Source 
 1. Before you install gwctl, ensure that your system meets the following requirements:
 
    1. Install Git: Make sure Git is installed on your system to clone the
