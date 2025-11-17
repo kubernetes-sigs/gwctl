@@ -66,3 +66,6 @@
     - Select the newly created tag (`v${MAJOR}.${MINOR}.${PATCH}`) from the "Choose a tag" dropdown.
     - Attach the relevant release artifacts (`.tar.gz` and `.zip` files) from the `dist` directory.
     - Publish the release.
+
+6. Update the Homebrew Formula:
+    - Follow the [official Homebrew guide](https://docs.brew.sh/How-To-Open-a-Homebrew-Pull-Request#submit-a-new-version-of-an-existing-formula) for submitting a new version of an existing formula.
