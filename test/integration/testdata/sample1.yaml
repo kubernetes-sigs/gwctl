@@ -1523,6 +1523,19 @@ spec:
   validation:
     hostname: example.com
     wellKnownCACertificates: System
+status:
+  ancestors:
+    - ancestorRef:
+        group: gateway.networking.k8s.io
+        kind: Gateway
+        name: gateway-1
+        namespace: test
+      controllerName: foo.com/external-gateway-class
+      conditions:
+        - type: Accepted
+          status: "True"
+          reason: Accepted
+          message: BackendTLSPolicy is accepted
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
@@ -1537,6 +1550,30 @@ spec:
   validation:
     hostname: example.com
     wellKnownCACertificates: System
+status:
+  ancestors:
+    - ancestorRef:
+        group: gateway.networking.k8s.io
+        kind: Gateway
+        name: gateway-1
+        namespace: test
+      controllerName: foo.com/external-gateway-class
+      conditions:
+        - type: Accepted
+          status: "False"
+          reason: Invalid
+          message: BackendTLSPolicy is invalid
+    - ancestorRef:
+        group: gateway.networking.k8s.io
+        kind: Gateway
+        name: gateway-2
+        namespace: default
+      controllerName: bar.baz/internal-gateway-class
+      conditions:
+        - type: Accepted
+          status: "True"
+          reason: Accepted
+          message: BackendTLSPolicy is accepted
 ---
 ################################################################################
 # Events

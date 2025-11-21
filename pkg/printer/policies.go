@@ -36,7 +36,7 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 
 	if p.table == nil {
 		p.table = &Table{
-			ColumnNames:  []string{"NAME", "KIND", "TARGET(S)", "POLICY TYPE", "AGE"},
+			ColumnNames:  []string{"NAMESPACE", "NAME", "KIND", "TARGET(S)", "POLICY TYPE", "ACCEPTED", "AGE"},
 			UseSeparator: false,
 		}
 	}
@@ -52,6 +52,30 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 		policyType = "Inherited"
 	}
 
+	// Calculate accepted status
+	acceptedStatus := "Unknown"
+	acceptedCount := 0
+	totalAncestors := len(policy.Status.Ancestors)
+
+	for _, ancestorsStatus := range policy.Status.Ancestors {
+		for _, condition := range ancestorsStatus.Conditions {
+			if condition.Type == "Accepted" && condition.Status == "True" {
+				acceptedCount++
+				break
+			}
+		}
+	}
+
+	if totalAncestors > 0 {
+		if acceptedCount == totalAncestors {
+			acceptedStatus = "True"
+		} else if acceptedCount > 0 {
+			acceptedStatus = "Partial"
+		} else {
+			acceptedStatus = "False"
+		}
+	}
+
 	kind := fmt.Sprintf("%v.%v", policy.Unstructured.GroupVersionKind().Kind, policy.Unstructured.GroupVersionKind().Group)
 
 	age := "<unknown>"
@@ -61,10 +85,12 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 	}
 
 	row := []string{
+		policy.Unstructured.GetNamespace(),
 		policy.Unstructured.GetName(),
 		kind,
 		generatePolicyTargets(policy.TargetRefs),
 		policyType,
+		acceptedStatus,
 		age,
 	}
 	p.table.Rows = append(p.table.Rows, row)
