@@ -95,8 +95,8 @@ default    svc-3  Service  <unknown>
 			inputArgs: []string{"policies"},
 			namespace: "test",
 			wantOut: `
-NAME      KIND                                        TARGET(S)                               POLICY TYPE  AGE
-policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       <unknown>
+NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
 `,
 		},
 		{
@@ -104,9 +104,9 @@ policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Servic
 			inputArgs: []string{"policies", "-A"},
 			namespace: "", // All namespaces
 			wantOut: `
-NAME      KIND                                        TARGET(S)                               POLICY TYPE  AGE
-policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       <unknown>
-policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       <unknown>
+NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+default    policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       Partial   <unknown>
+test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
 `,
 		},
 		{

@@ -170,6 +170,8 @@ type Policy struct {
 	// Indicates whether the policy is supposed to be "inherited" (as opposed to
 	// "direct").
 	Inheritable bool
+
+	Status gatewayv1.PolicyStatus
 }
 
 func ConstructPolicy(u *unstructured.Unstructured, inherited bool) (Policy, error) {
@@ -183,6 +185,7 @@ func ConstructPolicy(u *unstructured.Unstructured, inherited bool) (Policy, erro
 			TargetRef  gatewayv1.NamespacedPolicyTargetReference   `json:"targetRef,omitempty"`
 			TargetRefs []gatewayv1.NamespacedPolicyTargetReference `json:"targetRefs,omitempty"`
 		} `json:"spec"`
+		Status gatewayv1.PolicyStatus `json:"status,omitempty"`
 	}
 	structuredPolicy := &genericPolicy{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), structuredPolicy); err != nil {
@@ -211,6 +214,8 @@ func ConstructPolicy(u *unstructured.Unstructured, inherited bool) (Policy, erro
 	}
 
 	result.Inheritable = inherited
+
+	result.Status = structuredPolicy.Status
 
 	return result, nil
 }
