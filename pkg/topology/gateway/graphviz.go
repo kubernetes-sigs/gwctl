@@ -17,13 +17,7 @@ limitations under the License.
 package gateway
 
 import (
-	"bytes"
-	"context"
-	"log"
-
-	graphviz "github.com/goccy/go-graphviz"
-	"github.com/goccy/go-graphviz/cgraph"
-
+	"github.com/emicklei/dot"
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
 )
@@ -31,36 +25,18 @@ import (
 // TODO:
 //   - Show policy nodes. Attempt to group policy nodes along with their target
 //     nodes in a single subgraph so they get rendered closer together.
-func ToDot(gwctlGraph *topology.Graph) ([]byte, error) {
-	ctx := context.Background()
-	g, err := graphviz.New(ctx)
-	if err != nil {
-		return nil, err
-	}
-	cGraph, err := g.Graph()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := cGraph.Close(); err != nil {
-			log.Fatal(err)
-		}
-		g.Close()
-	}()
-	cGraph.SetRankDir(cgraph.BTRank)
-
-	cNodeMap := map[common.GKNN]*cgraph.Node{}
+func ToDot(gwctlGraph *topology.Graph) (string, error) {
+	dotGraph := dot.NewGraph(dot.Directed)
 
 	// Create nodes.
+	dotNodeMap := map[common.GKNN]dot.Node{}
 	for _, nodeMap := range gwctlGraph.Nodes {
 		for _, node := range nodeMap {
-			cNode, err := cGraph.CreateNodeByName(node.GKNN().String())
-			if err != nil {
-				return nil, err
-			}
-			cNodeMap[node.GKNN()] = cNode
-			cNode.SetStyle(cgraph.FilledNodeStyle)
-			cNode.SetFillColor(nodeColor(node))
+			dotNode := dotGraph.Node(node.GKNN().String()).
+				Attr("style", "filled").
+				Attr("color", mapNodeColor(node))
+
+			dotNodeMap[node.GKNN()] = dotNode
 
 			// Set the Node label
 			gk := node.GKNN().GroupKind()
@@ -71,17 +47,17 @@ func ToDot(gwctlGraph *topology.Graph) ([]byte, error) {
 			if node.GKNN().Namespace == "" {
 				name = node.GKNN().Name
 			}
-			cNode.SetLabel(gk.String() + "\n" + name)
+			dotNode.Label(gk.String() + "\n" + name)
 		}
 	}
 
 	// Create edges.
-	for fromNodeGKNN, cFromNode := range cNodeMap {
+	for fromNodeGKNN, dotFromNode := range dotNodeMap {
 		fromNode := gwctlGraph.Nodes[fromNodeGKNN.GroupKind()][fromNodeGKNN.NamespacedName()]
 
 		for relation, outNodeMap := range fromNode.OutNeighbors {
 			for toNodeGKNN := range outNodeMap {
-				cToNode := cNodeMap[toNodeGKNN]
+				dotToNode := dotNodeMap[toNodeGKNN]
 
 				// If this is an edge from an HTTPRoute to a Service, then
 				// reverse the direction of the edge (to affect the rank), and
@@ -90,36 +66,28 @@ func ToDot(gwctlGraph *topology.Graph) ([]byte, error) {
 				// correct rank.
 				reverse := (fromNode.GKNN().GroupKind() == common.HTTPRouteGK && toNodeGKNN.GroupKind() == common.ServiceGK) ||
 					(fromNode.GKNN().GroupKind() == common.GatewayGK && toNodeGKNN.GroupKind() == common.NamespaceGK)
-				u, v := cFromNode, cToNode
+				u, v := dotFromNode, dotToNode
 				if reverse {
 					u, v = v, u
 				}
 
-				e, err := cGraph.CreateEdgeByName(relation.Name, u, v)
-				if err != nil {
-					return nil, err
-				}
-				e.SetLabel(relation.Name)
+				e := dotGraph.Edge(u, v, relation.Name)
+
 				if reverse {
-					e.SetDir(cgraph.BackDir)
+					e.Attr("dir", "back")
 				}
 				// Create a dotted line for the relation to the namespace.
 				if toNodeGKNN.Kind == common.NamespaceGK.Kind {
-					e.SetStyle(cgraph.DottedEdgeStyle)
+					e.Dotted()
 				}
 			}
 		}
 	}
 
-	var buf bytes.Buffer
-	if err := g.Render(ctx, cGraph, "dot", &buf); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return dotGraph.String(), nil
 }
 
-func nodeColor(node *topology.Node) string {
+func mapNodeColor(node *topology.Node) string {
 	switch node.GKNN().GroupKind() {
 	case common.NamespaceGK:
 		return "#d08770"
