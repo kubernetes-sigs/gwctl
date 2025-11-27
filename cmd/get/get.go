@@ -208,7 +208,7 @@ func (o *getOptions) Run(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(o.IOStreams.Out, "%v\n", string(toDotGraph))
+		fmt.Fprintf(o.IOStreams.Out, "%v\n", toDotGraph)
 
 		return nil
 	}
