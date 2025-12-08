@@ -6,7 +6,7 @@ require (
 	github.com/emicklei/dot v1.9.2
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/google/go-cmp v0.7.0
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 	k8s.io/api v0.34.2
