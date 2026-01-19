@@ -24,6 +24,7 @@ import (
 	"text/tabwriter"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -129,6 +130,20 @@ func (t *Table) indentRow(row []string, indent int) []string {
 	newRow := append([]string{}, row...)
 	newRow[0] = fmt.Sprintf("%s%s", strings.Repeat(" ", indent), newRow[0])
 	return newRow
+}
+
+func namespacedBaseColumnNames(allNamespaces bool) []string {
+	if allNamespaces {
+		return []string{"NAMESPACE", "NAME"}
+	}
+	return []string{"NAME"}
+}
+
+func rowPrefixNamespaced(obj metav1.Object, allNamespaces bool) []string {
+	if allNamespaces {
+		return []string{obj.GetNamespace(), obj.GetName()}
+	}
+	return []string{obj.GetName()}
 }
 
 func convertEventsSliceToTable(events []*corev1.Event, clock clock.Clock) *Table {
