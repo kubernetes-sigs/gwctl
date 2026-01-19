@@ -37,13 +37,10 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 	}
 
 	if p.table == nil {
-		var columnNames []string
+		columnNames := append(namespacedBaseColumnNames(p.AllNamespaces), "HOSTNAMES", "PARENT REFS", "ACCEPTED", "RESOLVED", "AGE")
 		if p.OutputFormat == OutputFormatWide {
-			columnNames = []string{"NAMESPACE", "NAME", "HOSTNAMES", "PARENT REFS", "ACCEPTED", "RESOLVED", "AGE", "POLICIES"}
-		} else {
-			columnNames = []string{"NAMESPACE", "NAME", "HOSTNAMES", "PARENT REFS", "ACCEPTED", "RESOLVED", "AGE"}
+			columnNames = append(columnNames, "POLICIES")
 		}
-
 		p.table = &Table{
 			ColumnNames:  columnNames,
 			UseSeparator: false,
@@ -120,15 +117,7 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 		age = duration.HumanDuration(p.Clock.Since(creationTimestamp.Time))
 	}
 
-	row := []string{
-		httpRoute.GetNamespace(),
-		httpRoute.GetName(),
-		hostNamesOutput,
-		parentRefsCount,
-		acceptedStatus,
-		resolvedStatus,
-		age,
-	}
+	row := append(rowPrefixNamespaced(httpRoute, p.AllNamespaces), hostNamesOutput, parentRefsCount, acceptedStatus, resolvedStatus, age)
 	if p.OutputFormat == OutputFormatWide {
 		policiesMap, err := directlyattachedpolicy.Access(httpRouteNode)
 		if err != nil {

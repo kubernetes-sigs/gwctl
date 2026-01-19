@@ -36,7 +36,7 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 
 	if p.table == nil {
 		p.table = &Table{
-			ColumnNames:  []string{"NAMESPACE", "NAME", "KIND", "TARGET(S)", "POLICY TYPE", "ACCEPTED", "AGE"},
+			ColumnNames:  append(namespacedBaseColumnNames(p.AllNamespaces), "KIND", "TARGET(S)", "POLICY TYPE", "ACCEPTED", "AGE"),
 			UseSeparator: false,
 		}
 	}
@@ -84,15 +84,7 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 		age = duration.HumanDuration(p.Clock.Since(creationTimestamp.Time))
 	}
 
-	row := []string{
-		policy.Unstructured.GetNamespace(),
-		policy.Unstructured.GetName(),
-		kind,
-		generatePolicyTargets(policy.TargetRefs),
-		policyType,
-		acceptedStatus,
-		age,
-	}
+	row := append(rowPrefixNamespaced(policy.Unstructured, p.AllNamespaces), kind, generatePolicyTargets(policy.TargetRefs), policyType, acceptedStatus, age)
 	p.table.Rows = append(p.table.Rows, row)
 
 	return nil

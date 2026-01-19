@@ -251,10 +251,11 @@ func (o *getOptions) handlePolicy(args []string) error {
 
 func (o *getOptions) printNodes(nodes []*topology.Node) error {
 	printerOptions := printer.PrinterOptions{
-		OutputFormat: o.output,
-		Clock:        clock.RealClock{},
-		Description:  o.isDescribe,
-		EventFetcher: printer.NewDefaultEventFetcher(o.factory),
+		OutputFormat:  o.output,
+		Clock:         clock.RealClock{},
+		Description:   o.isDescribe,
+		EventFetcher:  printer.NewDefaultEventFetcher(o.factory),
+		AllNamespaces: o.allNamespaces,
 	}
 	p := printer.NewPrinter(printerOptions)
 	defer p.Flush(o.IOStreams.Out)
