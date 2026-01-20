@@ -27,6 +27,7 @@ import (
 //     nodes in a single subgraph so they get rendered closer together.
 func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	dotGraph := dot.NewGraph(dot.Directed)
+	dotGraph.Attr("rankdir", "BT") 
 
 	// Create nodes.
 	dotNodeMap := map[common.GKNN]dot.Node{}
