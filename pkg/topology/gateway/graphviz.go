@@ -18,7 +18,6 @@ package gateway
 
 import (
 	"github.com/emicklei/dot"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
 )
@@ -125,7 +124,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	return dotGraph.String(), nil
 }
 
-func mapColor(gk schema.GroupKind) string {
+func mapColor(gk common.GroupKind) string {
 	switch gk {
 	case common.NamespaceGK:
 		return "#d08770"

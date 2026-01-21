@@ -32,6 +32,8 @@ const (
 	gwctlPolicyGroup = "gwctl.gateway.networking.k8s.io"
 )
 
+type GroupKind = schema.GroupKind
+
 var (
 	GatewayClassGK   schema.GroupKind = schema.GroupKind{Group: gatewayv1.GroupName, Kind: "GatewayClass"}
 	GatewayGK        schema.GroupKind = schema.GroupKind{Group: gatewayv1.GroupName, Kind: "Gateway"}
