@@ -82,9 +82,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 			if gk.Group == common.GatewayGK.Group {
 				gk.Group = ""
 			}
-
-			name := node.GKNN().Name
-			dotNode.Label(gk.String() + "\n" + name)
+			dotNode.Label(gk.String() + "\n" + node.GKNN().Name)
 		}
 	}
 
