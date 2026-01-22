@@ -18,6 +18,7 @@ package gateway
 
 import (
 	"github.com/emicklei/dot"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
 )
@@ -31,15 +32,14 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	dotGraph.Attr("compound", "true")
 
 	// Collect all unique namespaces from nodes
-	namespaces := map[string]bool{}
+	namespaces := map[string]struct{}{}
 	for _, nodeMap := range gwctlGraph.Nodes {
 		for _, node := range nodeMap {
-			// Skip Namespace nodes - they will be represented as clusters
 			if node.GKNN().GroupKind() == common.NamespaceGK {
 				continue
 			}
 			if ns := node.GKNN().Namespace; ns != "" {
-				namespaces[ns] = true
+				namespaces[ns] = struct{}{}
 			}
 		}
 	}
@@ -49,9 +49,8 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	for ns := range namespaces {
 		cluster := dotGraph.Subgraph("cluster_"+ns, dot.ClusterOption{})
 		cluster.Attr("label", "Namespace: "+ns)
-		cluster.Attr("style", "filled")
-		cluster.Attr("color", mapColor(common.NamespaceGK))
-		cluster.Attr("fillcolor", mapColor(common.NamespaceGK)+"33")
+		cluster.Attr("style", "dashed")
+		cluster.Attr("color", "black")
 		clusterMap[ns] = cluster
 	}
 
@@ -60,6 +59,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	for _, nodeMap := range gwctlGraph.Nodes {
 		for _, node := range nodeMap {
 
+			// Skip Namespace nodes - they will be represented as clusters
 			if node.GKNN().GroupKind() == common.NamespaceGK {
 				continue
 			}
@@ -124,7 +124,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	return dotGraph.String(), nil
 }
 
-func mapColor(gk common.GroupKind) string {
+func mapColor(gk schema.GroupKind) string {
 	switch gk {
 	case common.NamespaceGK:
 		return "#d08770"
