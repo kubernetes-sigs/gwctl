@@ -108,7 +108,7 @@ func (f *getFlags) ToOptions(args []string, factory common.Factory, iostreams ge
 	}
 
 	var err error
-	o.isPolicy, o.isPolicyCRD, err = parseResourceTypeOrNameArgs(args)
+	o.resourceTypes, o.resourceNames, err = parseResourceTypeOrNameArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -137,116 +137,173 @@ type getOptions struct {
 	labelSelector string
 	output        printer.OutputFormat
 
-	isPolicy    bool
-	isPolicyCRD bool
+	// resourceTypes holds the requested resource types (e.g., ["gateway", "httproute"])
+	resourceTypes []string
+	// resourceNames holds the specific resource names when querying single type with name
+	resourceNames []string
 
 	genericclioptions.IOStreams
 }
 
 func (o *getOptions) Run(args []string) error {
-	if o.isPolicy || o.isPolicyCRD {
-		return o.handlePolicy(args)
-	}
-	infos, err := o.factory.NewBuilder().
-		Unstructured().
-		Flatten().
-		NamespaceParam(o.namespace).DefaultNamespace().AllNamespaces(o.allNamespaces).
-		ResourceTypeOrNameArgs(true, args...).
-		LabelSelectorParam(o.labelSelector).
-		ContinueOnError().
-		Do().
-		Infos()
-	if err != nil {
-		return err
+	// Collect all nodes from all requested resource types
+	allNodes := []*topology.Node{}
+
+	// Check if we're querying policies
+	isPolicy := false
+	isPolicyCRD := false
+
+	for _, resourceType := range o.resourceTypes {
+		if resourceType == "policy" || resourceType == "policies" {
+			isPolicy = true
+		} else if resourceType == "policycrd" || resourceType == "policycrds" {
+			isPolicyCRD = true
+		}
 	}
 
-	sources := []*unstructured.Unstructured{}
-	for _, info := range infos {
-		o, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object) //nolint:govet
+	// Handle policy/policycrd resources separately
+	if isPolicy || isPolicyCRD {
+		nodes, err := o.handlePolicy(args)
 		if err != nil {
 			return err
 		}
-		u := &unstructured.Unstructured{Object: o}
-		sources = append(sources, u)
+		allNodes = append(allNodes, nodes...)
 	}
 
-	var graph *topology.Graph
-	if o.isDescribe || o.output == printer.OutputFormatWide || o.output == printer.OutputFormatGraph {
-		graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
-			StartFrom(sources).
-			UseRelationships(topologygw.AllRelations).
-			Build()
-		if err != nil {
-			return err
-		}
-
-		policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
-		if err := policyManager.Init(); err != nil { //nolint:govet
-			return err
-		}
-
-		err := extension.ExecuteAll(graph, //nolint:govet
-			directlyattachedpolicy.NewExtension(policyManager),
-			gatewayeffectivepolicy.NewExtension(),
-			refgrantvalidator.NewExtension(refgrantvalidator.NewDefaultReferenceGrantFetcher(o.factory)),
-			notfoundrefvalidator.NewExtension(),
-		)
-		if err != nil {
-			return err
-		}
-	} else {
-		graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
-			StartFrom(sources).
-			Build()
-		if err != nil {
-			return err
+	// Handle other resources (gateway, httproute, etc)
+	nonPolicyTypes := []string{}
+	for _, rt := range o.resourceTypes {
+		if rt != "policy" && rt != "policies" && rt != "policycrd" && rt != "policycrds" {
+			nonPolicyTypes = append(nonPolicyTypes, rt)
 		}
 	}
 
-	if o.output == printer.OutputFormatGraph {
-		toDotGraph, err := topologygw.ToDot(graph)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(o.IOStreams.Out, "%v\n", toDotGraph)
+	if len(nonPolicyTypes) > 0 {
+		// Build a resource builder for non-policy types
+		b := o.factory.NewBuilder().
+			Unstructured().
+			Flatten().
+			NamespaceParam(o.namespace).DefaultNamespace().AllNamespaces(o.allNamespaces).
+			LabelSelectorParam(o.labelSelector).
+			ContinueOnError()
 
-		return nil
-	}
-
-	return o.printNodes(graph.Sources)
-}
-
-func (o *getOptions) handlePolicy(args []string) error {
-	policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
-	if err := policyManager.Init(); err != nil {
-		return err
-	}
-
-	nodes := []*topology.Node{}
-	if o.isPolicy {
-		for _, policy := range policyManager.GetPolicies() {
-			shouldSkip := (!o.allNamespaces && o.namespace != policy.GKNN().Namespace) ||
-				(len(args) == 2 && args[1] != policy.GKNN().Name)
-			if shouldSkip {
-				continue
+		// Add resource types to the builder
+		if len(o.resourceNames) > 0 {
+			// If resource names are provided, pass them with the type
+			for _, rt := range nonPolicyTypes {
+				b = b.ResourceTypeOrNameArgs(true, rt, o.resourceNames[0])
 			}
-			nodes = append(nodes, encodePolicyAsNode(policy))
-		}
-	} else {
-		for _, policyCRD := range policyManager.GetCRDs() {
-			shouldSkip := len(args) == 2 && (args[1] != policyCRD.CRD.GetName())
-			if shouldSkip {
-				continue
+		} else {
+			// Otherwise just pass the resource types
+			for _, rt := range nonPolicyTypes {
+				b = b.ResourceTypeOrNameArgs(true, rt)
 			}
-			node, err := encodePolicyCRDAsNode(policyCRD)
+		}
+
+		infos, err := b.Do().Infos()
+		if err != nil {
+			return err
+		}
+
+		sources := []*unstructured.Unstructured{}
+		for _, info := range infos {
+			o, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object) //nolint:govet
 			if err != nil {
 				return err
 			}
-			nodes = append(nodes, node)
+			u := &unstructured.Unstructured{Object: o}
+			sources = append(sources, u)
+		}
+
+		var graph *topology.Graph
+		if o.isDescribe || o.output == printer.OutputFormatWide || o.output == printer.OutputFormatGraph {
+			graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
+				StartFrom(sources).
+				UseRelationships(topologygw.AllRelations).
+				Build()
+			if err != nil {
+				return err
+			}
+
+			policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
+			if err := policyManager.Init(); err != nil { //nolint:govet
+				return err
+			}
+
+			err := extension.ExecuteAll(graph, //nolint:govet
+				directlyattachedpolicy.NewExtension(policyManager),
+				gatewayeffectivepolicy.NewExtension(),
+				refgrantvalidator.NewExtension(refgrantvalidator.NewDefaultReferenceGrantFetcher(o.factory)),
+				notfoundrefvalidator.NewExtension(),
+			)
+			if err != nil {
+				return err
+			}
+		} else {
+			graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
+				StartFrom(sources).
+				Build()
+			if err != nil {
+				return err
+			}
+		}
+
+		if o.output == printer.OutputFormatGraph {
+			toDotGraph, err := topologygw.ToDot(graph)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(o.IOStreams.Out, "%v\n", toDotGraph)
+			return nil
+		}
+
+		allNodes = append(allNodes, graph.Sources...)
+	}
+
+	if o.output == printer.OutputFormatGraph && len(allNodes) > 0 {
+		// Graph output was already handled above for non-policy types
+		return nil
+	}
+
+	// Print all collected nodes, including policies and non-policy resources
+	return o.printNodes(allNodes)
+}
+
+func (o *getOptions) handlePolicy(args []string) ([]*topology.Node, error) {
+	policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
+	if err := policyManager.Init(); err != nil {
+		return nil, err
+	}
+
+	nodes := []*topology.Node{}
+
+	// Process resource types in the order they appear in the command line
+	for _, resourceType := range o.resourceTypes {
+		if resourceType == "policy" || resourceType == "policies" {
+			for _, policy := range policyManager.GetPolicies() {
+				shouldSkip := (!o.allNamespaces && o.namespace != policy.GKNN().Namespace) ||
+					(len(o.resourceNames) > 0 && o.resourceNames[0] != policy.GKNN().Name)
+				if shouldSkip {
+					continue
+				}
+				nodes = append(nodes, encodePolicyAsNode(policy))
+			}
+		} else if resourceType == "policycrd" || resourceType == "policycrds" {
+			for _, policyCRD := range policyManager.GetCRDs() {
+				shouldSkip := len(o.resourceNames) > 0 && (o.resourceNames[0] != policyCRD.CRD.GetName())
+				if shouldSkip {
+					continue
+				}
+				node, err := encodePolicyCRDAsNode(policyCRD)
+				if err != nil {
+					return nil, err
+				}
+				nodes = append(nodes, node)
+			}
 		}
 	}
 
-	return o.printNodes(nodes)
+	return nodes, nil
 }
 
 func (o *getOptions) printNodes(nodes []*topology.Node) error {
@@ -258,29 +315,56 @@ func (o *getOptions) printNodes(nodes []*topology.Node) error {
 	}
 	p := printer.NewPrinter(printerOptions)
 	defer p.Flush(o.IOStreams.Out)
-	for _, node := range topology.SortedNodes(nodes) {
-		err := p.PrintNode(node, o.IOStreams.Out)
-		if err != nil {
-			return err
+
+	// Group nodes by resource type, preserving the order of resource types as specified
+	nodesByType := make(map[string][]*topology.Node)
+	typeOrder := []string{}
+
+	for _, node := range nodes {
+		gknn := node.GKNN()
+		typeStr := gknn.GroupKind().String()
+		if _, exists := nodesByType[typeStr]; !exists {
+			typeOrder = append(typeOrder, typeStr)
+		}
+		nodesByType[typeStr] = append(nodesByType[typeStr], node)
+	}
+
+	// Print nodes grouped by type, sorted within each type
+	for _, typeStr := range typeOrder {
+		groupNodes := nodesByType[typeStr]
+		sortedGroupNodes := topology.SortedNodes(groupNodes)
+		for _, node := range sortedGroupNodes {
+			err := p.PrintNode(node, o.IOStreams.Out)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func parseResourceTypeOrNameArgs(args []string) (isPolicy, isPolicyCRD bool, err error) {
-	if strings.Contains(args[0], ",") {
-		return false, false, fmt.Errorf("cannot specify more than one type, received types: %v", strings.Split(args[0], ","))
+func parseResourceTypeOrNameArgs(args []string) (resourceTypes []string, resourceNames []string, err error) {
+	if len(args) == 0 {
+		return nil, nil, fmt.Errorf("at least one resource type must be specified")
 	}
 
-	switch args[0] {
-	case "policy", "policies":
-		isPolicy = true
+	// Parse resource types and names
+	typesStr := args[0]
+	types := strings.Split(typesStr, ",")
 
-	case "policycrd", "policycrds":
-		isPolicyCRD = true
+	for _, t := range types {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			resourceTypes = append(resourceTypes, t)
+		}
 	}
 
-	return isPolicy, isPolicyCRD, nil
+	// If a resource name is provided (second argument), store it
+	if len(args) > 1 {
+		resourceNames = append(resourceNames, args[1])
+	}
+
+	return resourceTypes, resourceNames, nil
 }
 
 func encodePolicyAsNode(policy *policymanager.Policy) *topology.Node {
