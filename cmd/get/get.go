@@ -146,130 +146,82 @@ type getOptions struct {
 }
 
 func (o *getOptions) Run(args []string) error {
-	// Collect all nodes from all requested resource types
+	// Collect all nodes from all requested resource types, preserving order
 	allNodes := []*topology.Node{}
 
-	// Check if we're querying policies
-	isPolicy := false
-	isPolicyCRD := false
+	// Process resource types, grouping policies and non-policies but maintaining original order
+	type resourceGroup struct {
+		resourceTypes []string
+		isPolicy      bool
+		firstIndex    int
+	}
 
-	for _, resourceType := range o.resourceTypes {
-		if resourceType == "policy" || resourceType == "policies" {
-			isPolicy = true
-		} else if resourceType == "policycrd" || resourceType == "policycrds" {
-			isPolicyCRD = true
+	groups := []resourceGroup{}
+	currentPolicyGroup := resourceGroup{isPolicy: true, firstIndex: -1}
+	currentNonPolicyGroup := resourceGroup{isPolicy: false, firstIndex: -1}
+
+	for i, resourceType := range o.resourceTypes {
+		isPolicyType := resourceType == "policy" || resourceType == "policies" ||
+			resourceType == "policycrd" || resourceType == "policycrds"
+
+		if isPolicyType {
+			if currentNonPolicyGroup.firstIndex != -1 && len(currentNonPolicyGroup.resourceTypes) > 0 {
+				// End current non-policy group
+				groups = append(groups, currentNonPolicyGroup)
+				currentNonPolicyGroup = resourceGroup{isPolicy: false, firstIndex: -1}
+			}
+			if currentPolicyGroup.firstIndex == -1 {
+				currentPolicyGroup.firstIndex = i
+			}
+			currentPolicyGroup.resourceTypes = append(currentPolicyGroup.resourceTypes, resourceType)
+		} else {
+			if currentPolicyGroup.firstIndex != -1 && len(currentPolicyGroup.resourceTypes) > 0 {
+				// End current policy group
+				groups = append(groups, currentPolicyGroup)
+				currentPolicyGroup = resourceGroup{isPolicy: true, firstIndex: -1}
+			}
+			if currentNonPolicyGroup.firstIndex == -1 {
+				currentNonPolicyGroup.firstIndex = i
+			}
+			currentNonPolicyGroup.resourceTypes = append(currentNonPolicyGroup.resourceTypes, resourceType)
 		}
 	}
 
-	// Handle policy/policycrd resources separately
-	if isPolicy || isPolicyCRD {
-		nodes, err := o.handlePolicy(args)
+	// Flush any remaining groups
+	if currentPolicyGroup.firstIndex != -1 && len(currentPolicyGroup.resourceTypes) > 0 {
+		groups = append(groups, currentPolicyGroup)
+	}
+	if currentNonPolicyGroup.firstIndex != -1 && len(currentNonPolicyGroup.resourceTypes) > 0 {
+		groups = append(groups, currentNonPolicyGroup)
+	}
+
+	// Process each group and collect nodes
+	for _, group := range groups {
+		var nodes []*topology.Node
+		var err error
+
+		if group.isPolicy {
+			nodes, err = o.handlePolicyTypes(group.resourceTypes)
+		} else {
+			nodes, err = o.handleNonPolicyTypes(group.resourceTypes)
+		}
+
 		if err != nil {
 			return err
 		}
 		allNodes = append(allNodes, nodes...)
 	}
 
-	// Handle other resources (gateway, httproute, etc)
-	nonPolicyTypes := []string{}
-	for _, rt := range o.resourceTypes {
-		if rt != "policy" && rt != "policies" && rt != "policycrd" && rt != "policycrds" {
-			nonPolicyTypes = append(nonPolicyTypes, rt)
-		}
-	}
-
-	if len(nonPolicyTypes) > 0 {
-		// Build a resource builder for non-policy types
-		b := o.factory.NewBuilder().
-			Unstructured().
-			Flatten().
-			NamespaceParam(o.namespace).DefaultNamespace().AllNamespaces(o.allNamespaces).
-			LabelSelectorParam(o.labelSelector).
-			ContinueOnError()
-
-		// Add resource types to the builder
-		if len(o.resourceNames) > 0 {
-			// If resource names are provided, pass them with the type
-			for _, rt := range nonPolicyTypes {
-				b = b.ResourceTypeOrNameArgs(true, rt, o.resourceNames[0])
-			}
-		} else {
-			// Otherwise just pass the resource types
-			for _, rt := range nonPolicyTypes {
-				b = b.ResourceTypeOrNameArgs(true, rt)
-			}
-		}
-
-		infos, err := b.Do().Infos()
-		if err != nil {
-			return err
-		}
-
-		sources := []*unstructured.Unstructured{}
-		for _, info := range infos {
-			o, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object) //nolint:govet
-			if err != nil {
-				return err
-			}
-			u := &unstructured.Unstructured{Object: o}
-			sources = append(sources, u)
-		}
-
-		var graph *topology.Graph
-		if o.isDescribe || o.output == printer.OutputFormatWide || o.output == printer.OutputFormatGraph {
-			graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
-				StartFrom(sources).
-				UseRelationships(topologygw.AllRelations).
-				Build()
-			if err != nil {
-				return err
-			}
-
-			policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
-			if err := policyManager.Init(); err != nil { //nolint:govet
-				return err
-			}
-
-			err := extension.ExecuteAll(graph, //nolint:govet
-				directlyattachedpolicy.NewExtension(policyManager),
-				gatewayeffectivepolicy.NewExtension(),
-				refgrantvalidator.NewExtension(refgrantvalidator.NewDefaultReferenceGrantFetcher(o.factory)),
-				notfoundrefvalidator.NewExtension(),
-			)
-			if err != nil {
-				return err
-			}
-		} else {
-			graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
-				StartFrom(sources).
-				Build()
-			if err != nil {
-				return err
-			}
-		}
-
-		if o.output == printer.OutputFormatGraph {
-			toDotGraph, err := topologygw.ToDot(graph)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(o.IOStreams.Out, "%v\n", toDotGraph)
-			return nil
-		}
-
-		allNodes = append(allNodes, graph.Sources...)
-	}
-
 	if o.output == printer.OutputFormatGraph && len(allNodes) > 0 {
-		// Graph output was already handled above for non-policy types
+		// Graph output was already handled
 		return nil
 	}
 
-	// Print all collected nodes, including policies and non-policy resources
+	// Print all collected nodes, preserving the order they were requested
 	return o.printNodes(allNodes)
 }
 
-func (o *getOptions) handlePolicy(args []string) ([]*topology.Node, error) {
+func (o *getOptions) handlePolicyTypes(resourceTypes []string) ([]*topology.Node, error) {
 	policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
 	if err := policyManager.Init(); err != nil {
 		return nil, err
@@ -277,8 +229,8 @@ func (o *getOptions) handlePolicy(args []string) ([]*topology.Node, error) {
 
 	nodes := []*topology.Node{}
 
-	// Process resource types in the order they appear in the command line
-	for _, resourceType := range o.resourceTypes {
+	// Process each resource type
+	for _, resourceType := range resourceTypes {
 		if resourceType == "policy" || resourceType == "policies" {
 			for _, policy := range policyManager.GetPolicies() {
 				shouldSkip := (!o.allNamespaces && o.namespace != policy.GKNN().Namespace) ||
@@ -304,6 +256,87 @@ func (o *getOptions) handlePolicy(args []string) ([]*topology.Node, error) {
 	}
 
 	return nodes, nil
+}
+
+func (o *getOptions) handleNonPolicyTypes(resourceTypes []string) ([]*topology.Node, error) {
+	// Build a resource builder for all non-policy types
+	b := o.factory.NewBuilder().
+		Unstructured().
+		Flatten().
+		NamespaceParam(o.namespace).DefaultNamespace().AllNamespaces(o.allNamespaces).
+		LabelSelectorParam(o.labelSelector).
+		ContinueOnError()
+
+	// Add all resource types to the builder
+	if len(o.resourceNames) > 0 {
+		// If resource names are provided, pass them with each type
+		for _, rt := range resourceTypes {
+			b = b.ResourceTypeOrNameArgs(true, rt, o.resourceNames[0])
+		}
+	} else {
+		// Otherwise just pass the resource types
+		for _, rt := range resourceTypes {
+			b = b.ResourceTypeOrNameArgs(true, rt)
+		}
+	}
+
+	infos, err := b.Do().Infos()
+	if err != nil {
+		return nil, err
+	}
+
+	sources := []*unstructured.Unstructured{}
+	for _, info := range infos {
+		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, &unstructured.Unstructured{Object: u})
+	}
+
+	var graph *topology.Graph
+	if o.isDescribe || o.output == printer.OutputFormatWide || o.output == printer.OutputFormatGraph {
+		graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
+			StartFrom(sources).
+			UseRelationships(topologygw.AllRelations).
+			Build()
+		if err != nil {
+			return nil, err
+		}
+
+		policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
+		if err := policyManager.Init(); err != nil {
+			return nil, err
+		}
+
+		err = extension.ExecuteAll(graph,
+			directlyattachedpolicy.NewExtension(policyManager),
+			gatewayeffectivepolicy.NewExtension(),
+			refgrantvalidator.NewExtension(refgrantvalidator.NewDefaultReferenceGrantFetcher(o.factory)),
+			notfoundrefvalidator.NewExtension(),
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
+			StartFrom(sources).
+			Build()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if o.output == printer.OutputFormatGraph {
+		toDotGraph, err := topologygw.ToDot(graph)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Fprintf(o.IOStreams.Out, "%v\n", toDotGraph)
+		return nil, nil
+	}
+
+	return graph.Sources, nil
 }
 
 func (o *getOptions) printNodes(nodes []*topology.Node) error {
