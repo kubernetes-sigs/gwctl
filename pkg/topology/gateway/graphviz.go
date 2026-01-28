@@ -28,12 +28,49 @@ import (
 func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	dotGraph := dot.NewGraph(dot.Directed)
 	dotGraph.Attr("rankdir", "BT")
+	dotGraph.Attr("compound", "true")
+
+	// Collect all unique namespaces from nodes
+	namespaces := map[string]struct{}{}
+	for _, nodeMap := range gwctlGraph.Nodes {
+		for _, node := range nodeMap {
+			if node.GKNN().GroupKind() == common.NamespaceGK {
+				continue
+			}
+			if ns := node.GKNN().Namespace; ns != "" {
+				namespaces[ns] = struct{}{}
+			}
+		}
+	}
+
+	// Create subgraphs for each namespace
+	clusterMap := map[string]*dot.Graph{}
+	for ns := range namespaces {
+		cluster := dotGraph.Subgraph("cluster_"+ns, dot.ClusterOption{})
+		cluster.Attr("label", "Namespace: "+ns)
+		cluster.Attr("style", "dashed")
+		cluster.Attr("color", "black")
+		clusterMap[ns] = cluster
+	}
 
 	// Create nodes.
 	dotNodeMap := map[common.GKNN]dot.Node{}
 	for _, nodeMap := range gwctlGraph.Nodes {
 		for _, node := range nodeMap {
-			dotNode := dotGraph.Node(node.GKNN().String()).
+
+			// Skip Namespace nodes - they will be represented as clusters
+			if node.GKNN().GroupKind() == common.NamespaceGK {
+				continue
+			}
+
+			var targetGraph *dot.Graph
+			if ns := node.GKNN().Namespace; ns != "" {
+				targetGraph = clusterMap[ns]
+			} else {
+				targetGraph = dotGraph
+			}
+
+			dotNode := targetGraph.Node(node.GKNN().String()).
 				Attr("style", "filled").
 				Attr("color", mapNodeColor(node))
 
@@ -44,11 +81,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 			if gk.Group == common.GatewayGK.Group {
 				gk.Group = ""
 			}
-			name := node.GKNN().NamespacedName().String()
-			if node.GKNN().Namespace == "" {
-				name = node.GKNN().Name
-			}
-			dotNode.Label(gk.String() + "\n" + name)
+			dotNode.Label(gk.String() + "\n" + node.GKNN().Name)
 		}
 	}
 
@@ -58,6 +91,11 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 		for relation, outNodeMap := range fromNode.OutNeighbors {
 			for toNodeGKNN := range outNodeMap {
+				// Skip edges to Namespace nodes - namespace relationship are represented by cluster membership
+				if toNodeGKNN.GroupKind() == common.NamespaceGK {
+					continue
+				}
+
 				dotToNode := dotNodeMap[toNodeGKNN]
 
 				// If this is an edge from an HTTPRoute to a Service, then
@@ -65,8 +103,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 				// then reverse the display again to show the correct direction.
 				// The end result being that Services now get assigned the
 				// correct rank.
-				reverse := (fromNode.GKNN().GroupKind() == common.HTTPRouteGK && toNodeGKNN.GroupKind() == common.ServiceGK) ||
-					(fromNode.GKNN().GroupKind() == common.GatewayGK && toNodeGKNN.GroupKind() == common.NamespaceGK)
+				reverse := fromNode.GKNN().GroupKind() == common.HTTPRouteGK && toNodeGKNN.GroupKind() == common.ServiceGK
 				u, v := dotFromNode, dotToNode
 				if reverse {
 					u, v = v, u
@@ -77,10 +114,6 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 				if reverse {
 					e.Attr("dir", "back")
 				}
-				// Create a dotted line for the relation to the namespace.
-				if toNodeGKNN.Kind == common.NamespaceGK.Kind {
-					e.Dotted()
-				}
 			}
 		}
 	}
@@ -90,8 +123,6 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 func mapNodeColor(node *topology.Node) string {
 	switch node.GKNN().GroupKind() {
-	case common.NamespaceGK:
-		return "#d08770"
 	case common.GatewayClassGK:
 		return "#e5e9f0"
 	case common.GatewayGK:
