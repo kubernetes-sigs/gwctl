@@ -112,25 +112,22 @@ func (a *Extension) calculateInheritedPoliciesForHTTPRoutes(graph *topology.Grap
 		}
 
 		// Policies inherited from Gateways.
-		gatewayNodes := topologygw.HTTPRouteNode(httpRouteNode).Gateways()
-		if gatewayNodes != nil {
-			for _, gatewayNode := range gatewayNodes {
-				// Add policies inherited by GatewayNode.
-				effPolicyMetadata, err := Access(gatewayNode)
-				if err != nil {
-					return err
-				}
-				if effPolicyMetadata != nil {
-					maps.Copy(result, effPolicyMetadata.GatewayInheritedPolicies)
-				}
-
-				// Add inheritable policies directly applied to GatewayNode.
-				gatewayPoliciesMap, err := directlyattachedpolicy.Access(gatewayNode)
-				if err != nil {
-					return err
-				}
-				maps.Copy(result, filterInheritablePolicies(gatewayPoliciesMap))
+		for _, gatewayNode := range topologygw.HTTPRouteNode(httpRouteNode).Gateways() {
+			// Add policies inherited by GatewayNode.
+			effPolicyMetadata, err := Access(gatewayNode)
+			if err != nil {
+				return err
 			}
+			if effPolicyMetadata != nil {
+				maps.Copy(result, effPolicyMetadata.GatewayInheritedPolicies)
+			}
+
+			// Add inheritable policies directly applied to GatewayNode.
+			gatewayPoliciesMap, err := directlyattachedpolicy.Access(gatewayNode)
+			if err != nil {
+				return err
+			}
+			maps.Copy(result, filterInheritablePolicies(gatewayPoliciesMap))
 		}
 
 		httpRouteNode.Metadata[extensionName] = &NodeMetadata{HTTPRouteInheritedPolicies: result}
@@ -155,25 +152,22 @@ func (a *Extension) calculateInheritedPoliciesForBackends(graph *topology.Graph)
 		}
 
 		// Policies inherited from HTTPRoutes.
-		httpRouteNodes := topologygw.BackendNode(backendNode).HTTPRoutes()
-		if httpRouteNodes != nil {
-			for _, httpRouteNode := range httpRouteNodes {
-				// Add policies inherited by HTTPRouteNode.
-				effPolicyMetadata, err := Access(httpRouteNode)
-				if err != nil {
-					return err
-				}
-				if effPolicyMetadata != nil {
-					maps.Copy(result, effPolicyMetadata.HTTPRouteInheritedPolicies)
-				}
-
-				// Add inheritable policies directly applied to HTTPRouteNode.
-				httpRoutePoliciesMap, err := directlyattachedpolicy.Access(httpRouteNode)
-				if err != nil {
-					return err
-				}
-				maps.Copy(result, filterInheritablePolicies(httpRoutePoliciesMap))
+		for _, httpRouteNode := range topologygw.BackendNode(backendNode).HTTPRoutes() {
+			// Add policies inherited by HTTPRouteNode.
+			effPolicyMetadata, err := Access(httpRouteNode)
+			if err != nil {
+				return err
 			}
+			if effPolicyMetadata != nil {
+				maps.Copy(result, effPolicyMetadata.HTTPRouteInheritedPolicies)
+			}
+
+			// Add inheritable policies directly applied to HTTPRouteNode.
+			httpRoutePoliciesMap, err := directlyattachedpolicy.Access(httpRouteNode)
+			if err != nil {
+				return err
+			}
+			maps.Copy(result, filterInheritablePolicies(httpRoutePoliciesMap))
 		}
 
 		backendNode.Metadata[extensionName] = &NodeMetadata{BackendInheritedPolicies: result}

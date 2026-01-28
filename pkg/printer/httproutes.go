@@ -23,12 +23,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
 	"sigs.k8s.io/gwctl/pkg/extension/gatewayeffectivepolicy"
 	extensionutils "sigs.k8s.io/gwctl/pkg/extension/utils"
 	"sigs.k8s.io/gwctl/pkg/policymanager"
 	"sigs.k8s.io/gwctl/pkg/topology"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer) error {
@@ -82,11 +83,12 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 	}
 
 	if totalParents > 0 {
-		if acceptedCount == totalParents {
+		switch {
+		case acceptedCount == totalParents:
 			acceptedStatus = "True"
-		} else if acceptedCount > 0 {
+		case acceptedCount > 0:
 			acceptedStatus = "Partial"
-		} else {
+		default:
 			acceptedStatus = "False"
 		}
 	}
@@ -105,12 +107,13 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 	}
 
 	if totalParents > 0 {
-		if resolvedCount == totalParents {
-			resolvedStatus = "True"
-		} else if resolvedCount > 0 {
-			resolvedStatus = "Partial"
-		} else {
-			resolvedStatus = "False"
+		switch {
+		case acceptedCount == totalParents:
+			acceptedStatus = "True"
+		case acceptedCount > 0:
+			acceptedStatus = "Partial"
+		default:
+			acceptedStatus = "False"
 		}
 	}
 

@@ -29,8 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/common"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type PolicyManager struct {

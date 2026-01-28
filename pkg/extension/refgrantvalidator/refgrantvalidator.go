@@ -25,6 +25,7 @@ import (
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
 	topologygw "sigs.k8s.io/gwctl/pkg/topology/gateway"

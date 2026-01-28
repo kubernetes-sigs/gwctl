@@ -108,9 +108,9 @@ func (o *deleteOptions) Run(args []string) error {
 			if !apierrors.IsNotFound(err) {
 				return err
 			}
-			fmt.Fprintf(o.IOStreams.Out, "Error when deleting %v: %v\n", info.ObjectName(), err)
+			fmt.Fprintf(o.Out, "Error when deleting %v: %v\n", info.ObjectName(), err)
 		} else {
-			fmt.Fprintf(o.IOStreams.Out, "%v deleted\n", info.ObjectName())
+			fmt.Fprintf(o.Out, "%v deleted\n", info.ObjectName())
 		}
 	}
 

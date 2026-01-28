@@ -38,7 +38,7 @@ for module in $(find . -name "go.mod" | xargs -n1 dirname); do
     -e GOLANGCI_LINT_CACHE=/cache \
     -e GOFLAGS="-buildvcs=false" \
     "golangci/golangci-lint:$VERSION" \
-    golangci-lint run --fix || failed=true
+    golangci-lint run || failed=true
 done
 
 if ${failed}; then

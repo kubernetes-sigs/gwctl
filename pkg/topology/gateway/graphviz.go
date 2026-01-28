@@ -18,6 +18,7 @@ package gateway
 
 import (
 	"github.com/emicklei/dot"
+
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
 )
@@ -57,7 +58,6 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	dotNodeMap := map[common.GKNN]dot.Node{}
 	for _, nodeMap := range gwctlGraph.Nodes {
 		for _, node := range nodeMap {
-
 			// Skip Namespace nodes - they will be represented as clusters
 			if node.GKNN().GroupKind() == common.NamespaceGK {
 				continue
