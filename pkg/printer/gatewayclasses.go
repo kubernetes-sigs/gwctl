@@ -23,11 +23,12 @@ import (
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
 	"sigs.k8s.io/gwctl/pkg/policymanager"
 	"sigs.k8s.io/gwctl/pkg/topology"
 	topologygw "sigs.k8s.io/gwctl/pkg/topology/gateway"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func (p *TablePrinter) printGatewayClass(gatewayClassNode *topology.Node, w io.Writer) error {
@@ -117,7 +118,7 @@ func (p *DescriptionPrinter) printGatewayClass(gatewayClassNode *topology.Node, 
 	for _, gatewayNode := range topology.SortedNodes(gatewayNodes) {
 		gatewaysCount++
 		if gatewaysCount > maxGateways {
-			attachedGateways.Rows = append(attachedGateways.Rows, []string{fmt.Sprintf("(Truncated)")})
+			attachedGateways.Rows = append(attachedGateways.Rows, []string{"(Truncated)"})
 			break
 		}
 		row := []string{

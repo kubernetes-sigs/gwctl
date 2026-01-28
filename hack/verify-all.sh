@@ -23,3 +23,4 @@ cd "${REPO_ROOT}"
 
 hack/verify-gofmt.sh
 hack/verify-govet.sh
+hack/verify-golint.sh

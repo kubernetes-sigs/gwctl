@@ -23,9 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var (

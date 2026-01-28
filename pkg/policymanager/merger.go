@@ -22,6 +22,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"sigs.k8s.io/gwctl/pkg/common"
 )
 
@@ -193,7 +194,7 @@ func orderPolicyByPrecedence(a, b *Policy) (*Policy, *Policy) {
 		if higherNN > lowerNN {
 			higherPolicy, lowerPolicy = lowerPolicy, higherPolicy
 		}
-	} else if higherPolicy.Unstructured.GetCreationTimestamp().Time.After(lowerPolicy.Unstructured.GetCreationTimestamp().Time) {
+	} else if higherPolicy.Unstructured.GetCreationTimestamp().After(lowerPolicy.Unstructured.GetCreationTimestamp().Time) {
 		// Policies have difference creation time, so this will decide the precedence
 		higherPolicy, lowerPolicy = lowerPolicy, higherPolicy
 	}

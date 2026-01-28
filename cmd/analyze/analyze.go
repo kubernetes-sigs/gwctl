@@ -95,9 +95,9 @@ type analyzeOptions struct {
 }
 
 func (o *analyzeOptions) Run() error {
-	fmt.Fprintf(o.IOStreams.Out, "\n")
-	fmt.Fprintf(o.IOStreams.Out, "Analyzing %v...\n", strings.Join(o.fileNameOptions.Filenames, ","))
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "\n")
+	fmt.Fprintf(o.Out, "Analyzing %v...\n", strings.Join(o.fileNameOptions.Filenames, ","))
+	fmt.Fprintf(o.Out, "\n")
 
 	// Step 1: Parse the files and extract the objects from the files.
 	infos, err := o.factory.NewBuilder().
@@ -228,59 +228,59 @@ func (o *analyzeOptions) Run() error {
 
 	// Step 7: Report analysis
 
-	fmt.Fprintf(o.IOStreams.Out, "Summary:\n")
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "Summary:\n")
+	fmt.Fprintf(o.Out, "\n")
 	created, updated := generateSummary(existingObjects)
 	for _, info := range created {
-		fmt.Fprintf(o.IOStreams.Out, "\t- Created %v", info.ObjectName())
+		fmt.Fprintf(o.Out, "\t- Created %v", info.ObjectName())
 		if info.Namespaced() {
-			fmt.Fprintf(o.IOStreams.Out, " in namespace %v", info.Namespace)
+			fmt.Fprintf(o.Out, " in namespace %v", info.Namespace)
 		}
-		fmt.Fprintf(o.IOStreams.Out, "\n")
+		fmt.Fprintf(o.Out, "\n")
 	}
 	for _, info := range updated {
-		fmt.Fprintf(o.IOStreams.Out, "\t- Updated %v", info.ObjectName())
+		fmt.Fprintf(o.Out, "\t- Updated %v", info.ObjectName())
 		if info.Namespaced() {
-			fmt.Fprintf(o.IOStreams.Out, " in namespace %v", info.Namespace)
+			fmt.Fprintf(o.Out, " in namespace %v", info.Namespace)
 		}
-		fmt.Fprintf(o.IOStreams.Out, "\n")
+		fmt.Fprintf(o.Out, "\n")
 	}
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "\n")
 
 	newIssues, fixedIssues, unchangedIssues := classifyErrors(errorsBeforeChanges, errorsAfterChanges)
 
-	fmt.Fprintf(o.IOStreams.Out, "Potential Issues Introduced\n")
-	fmt.Fprintf(o.IOStreams.Out, "(These issues will arise after applying the changes in the analyzed file.):\n")
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "Potential Issues Introduced\n")
+	fmt.Fprintf(o.Out, "(These issues will arise after applying the changes in the analyzed file.):\n")
+	fmt.Fprintf(o.Out, "\n")
 	for _, s := range newIssues {
-		fmt.Fprintf(o.IOStreams.Out, "\t- %v:\n", s)
+		fmt.Fprintf(o.Out, "\t- %v:\n", s)
 	}
 	if len(newIssues) == 0 {
-		fmt.Fprintf(o.IOStreams.Out, "\tNone.\n")
+		fmt.Fprintf(o.Out, "\tNone.\n")
 	}
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "\n")
 
-	fmt.Fprintf(o.IOStreams.Out, "Existing Issues Fixed\n")
-	fmt.Fprintf(o.IOStreams.Out, "(These issues were present before the changes but will be resolved after applying them.):\n")
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "Existing Issues Fixed\n")
+	fmt.Fprintf(o.Out, "(These issues were present before the changes but will be resolved after applying them.):\n")
+	fmt.Fprintf(o.Out, "\n")
 	for _, s := range fixedIssues {
-		fmt.Fprintf(o.IOStreams.Out, "\t- %v:\n", s)
+		fmt.Fprintf(o.Out, "\t- %v:\n", s)
 	}
 	if len(fixedIssues) == 0 {
-		fmt.Fprintf(o.IOStreams.Out, "\tNone\n")
+		fmt.Fprintf(o.Out, "\tNone\n")
 	}
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "\n")
 
-	fmt.Fprintf(o.IOStreams.Out, "Existing Issues Unchanged\n")
-	fmt.Fprintf(o.IOStreams.Out, "(These issues were present before the changes and will remain even after applying them.):\n")
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "Existing Issues Unchanged\n")
+	fmt.Fprintf(o.Out, "(These issues were present before the changes and will remain even after applying them.):\n")
+	fmt.Fprintf(o.Out, "\n")
 	for _, s := range unchangedIssues {
-		fmt.Fprintf(o.IOStreams.Out, "\t- %v:\n", s)
+		fmt.Fprintf(o.Out, "\t- %v:\n", s)
 	}
 	if len(unchangedIssues) == 0 {
-		fmt.Fprintf(o.IOStreams.Out, "\tNone\n")
+		fmt.Fprintf(o.Out, "\tNone\n")
 	}
-	fmt.Fprintf(o.IOStreams.Out, "\n")
+	fmt.Fprintf(o.Out, "\n")
 
 	return nil
 }

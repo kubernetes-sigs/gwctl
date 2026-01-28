@@ -41,8 +41,9 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/common"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type TestFactory struct {

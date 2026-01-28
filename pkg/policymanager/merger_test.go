@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"sigs.k8s.io/gwctl/pkg/common"
 )
 

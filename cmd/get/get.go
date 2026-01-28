@@ -208,7 +208,7 @@ func (o *getOptions) Run(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(o.IOStreams.Out, "%v\n", toDotGraph)
+		fmt.Fprintf(o.Out, "%v\n", toDotGraph)
 
 		return nil
 	}
@@ -257,9 +257,9 @@ func (o *getOptions) printNodes(nodes []*topology.Node) error {
 		EventFetcher: printer.NewDefaultEventFetcher(o.factory),
 	}
 	p := printer.NewPrinter(printerOptions)
-	defer p.Flush(o.IOStreams.Out)
+	defer p.Flush(o.Out)
 	for _, node := range topology.SortedNodes(nodes) {
-		err := p.PrintNode(node, o.IOStreams.Out)
+		err := p.PrintNode(node, o.Out)
 		if err != nil {
 			return err
 		}

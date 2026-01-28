@@ -67,7 +67,6 @@ func (g *Graph) DeleteNode(node *Node) {
 	if len(g.Nodes[node.GKNN().GroupKind()]) == 0 {
 		delete(g.Nodes, node.GKNN().GroupKind())
 	}
-	return
 }
 
 func (g *Graph) DeleteNodeUsingGKNN(nodeGKNN common.GKNN) {
