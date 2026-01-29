@@ -19,6 +19,7 @@ package get
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -161,8 +162,7 @@ func (o *getOptions) Run(args []string) error {
 	currentNonPolicyGroup := resourceGroup{isPolicy: false, firstIndex: -1}
 
 	for i, resourceType := range o.resourceTypes {
-		isPolicyType := resourceType == "policy" || resourceType == "policies" ||
-			resourceType == "policycrd" || resourceType == "policycrds"
+		isPolicyType := slices.Contains([]string{"policy", "policies", "policycrd", "policycrds"}, resourceType)
 
 		if isPolicyType {
 			if currentNonPolicyGroup.firstIndex != -1 && len(currentNonPolicyGroup.resourceTypes) > 0 {
