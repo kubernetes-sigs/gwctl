@@ -67,11 +67,12 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 	}
 
 	if totalAncestors > 0 {
-		if acceptedCount == totalAncestors {
+		switch {
+		case acceptedCount == totalAncestors:
 			acceptedStatus = "True"
-		} else if acceptedCount > 0 {
+		case acceptedCount > 0:
 			acceptedStatus = "Partial"
-		} else {
+		default:
 			acceptedStatus = "False"
 		}
 	}

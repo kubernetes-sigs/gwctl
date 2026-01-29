@@ -24,13 +24,14 @@ import (
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
 	"sigs.k8s.io/gwctl/pkg/extension/gatewayeffectivepolicy"
 	extensionutils "sigs.k8s.io/gwctl/pkg/extension/utils"
 	"sigs.k8s.io/gwctl/pkg/policymanager"
 	"sigs.k8s.io/gwctl/pkg/topology"
 	topologygw "sigs.k8s.io/gwctl/pkg/topology/gateway"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func (p *TablePrinter) printGateway(gatewayNode *topology.Node, w io.Writer) error {
@@ -154,7 +155,7 @@ func (p *DescriptionPrinter) printGateway(gatewayNode *topology.Node, w io.Write
 	for _, httpRouteNode := range topology.SortedNodes(httpRouteNodes) {
 		httpRouteCount++
 		if httpRouteCount > maxHTTPRoutes {
-			attachedRoutes.Rows = append(attachedRoutes.Rows, []string{fmt.Sprintf("(Truncated)")})
+			attachedRoutes.Rows = append(attachedRoutes.Rows, []string{"(Truncated)"})
 			break
 		}
 		row := []string{
@@ -167,7 +168,7 @@ func (p *DescriptionPrinter) printGateway(gatewayNode *topology.Node, w io.Write
 		for _, backendNode := range topology.SortedNodes(backendNodes) {
 			backendsCount++
 			if backendsCount > maxBackends {
-				backends.Rows = append(backends.Rows, []string{fmt.Sprintf("(Truncated)")})
+				backends.Rows = append(backends.Rows, []string{"(Truncated)"})
 				break
 			}
 			row := []string{

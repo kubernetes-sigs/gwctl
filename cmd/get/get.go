@@ -332,8 +332,9 @@ func (o *getOptions) handleNonPolicyTypes(resourceTypes []string) ([]*topology.N
 		if err != nil {
 			return nil, err
 		}
-		fmt.Fprintf(o.IOStreams.Out, "%v\n", toDotGraph)
-		return nil, nil
+		fmt.Fprintf(o.Out, "%v\n", toDotGraph)
+
+		return nil
 	}
 
 	return graph.Sources, nil

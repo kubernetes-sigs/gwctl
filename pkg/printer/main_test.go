@@ -30,10 +30,11 @@ import (
 
 	"k8s.io/klog/v2"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/policymanager"
 	"sigs.k8s.io/gwctl/pkg/topology"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestMain(m *testing.M) {

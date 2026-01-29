@@ -4,7 +4,6 @@ approvers:
   - gauravkghildiyal
   - snorwin
   - robscott
-  - shaneutt
   - youngnick
 
 reviewers:
@@ -12,3 +11,4 @@ reviewers:
 
 emeritus_approvers:
   - mlavacca
+  - shaneutt
