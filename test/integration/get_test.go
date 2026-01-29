@@ -161,6 +161,37 @@ NAMESPACE  NAME      KIND                                        TARGET(S)      
 test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
 `,
 		},
+
+		{
+			name:      "get httproutes,policies -A",
+			inputArgs: []string{"httproutes,policies", "-A"},
+			namespace: "", // All namespaces
+			wantOut: `
+NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+default    httproute-3  example4.com                       1            Unknown   Unknown   <unknown>
+test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+
+NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+default    policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       Partial   <unknown>
+test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+`,
+		},
+		{
+			name:      "get policies,httproutes -A",
+			inputArgs: []string{"policies,httproutes", "-A"},
+			namespace: "", // All namespaces
+			wantOut: `
+NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+default    policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       Partial   <unknown>
+test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+
+NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+default    httproute-3  example4.com                       1            Unknown   Unknown   <unknown>
+test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+`,
+		},
 		{
 			name:      "describe gateways -n test",
 			inputArgs: []string{"gateways"},
@@ -264,36 +295,6 @@ Events:
   Type     Reason  Age      From                   Message
   ----     ------  ---      ----                   -------
   Warning  SYNC    Unknown  my-gateway-controller  test message
-`,
-		},
-		{
-			name:      "get httproutes,policies -A",
-			inputArgs: []string{"httproutes,policies", "-A"},
-			namespace: "", // All namespaces
-			wantOut: `
-NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
-default    httproute-3  example4.com                       1            Unknown   Unknown   <unknown>
-test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
-test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
-
-NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
-default    policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       Partial   <unknown>
-test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
-`,
-		},
-		{
-			name:      "get policies,httproutes -A",
-			inputArgs: []string{"policies,httproutes", "-A"},
-			namespace: "", // All namespaces
-			wantOut: `
-NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
-default    policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       Partial   <unknown>
-test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
-
-NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
-default    httproute-3  example4.com                       1            Unknown   Unknown   <unknown>
-test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
-test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
 `,
 		},
 	}
