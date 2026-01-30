@@ -100,6 +100,10 @@ func newGetFlags() *getFlags {
 }
 
 func (f *getFlags) ToOptions(args []string, factory common.Factory, iostreams genericiooptions.IOStreams, isDescribe bool) (*getOptions, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("at least one resource type must be specified")
+	}
+
 	o := &getOptions{
 		isDescribe:    isDescribe,
 		factory:       factory,
@@ -147,6 +151,10 @@ type getOptions struct {
 }
 
 func (o *getOptions) Run(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("at least one resource type must be specified")
+	}
+
 	// Collect all nodes from all requested resource types, preserving order
 	allNodes := []*topology.Node{}
 
@@ -203,7 +211,7 @@ func (o *getOptions) Run(args []string) error {
 		if group.isPolicy {
 			nodes, err = o.handlePolicyTypes(group.resourceTypes)
 		} else {
-			nodes, err = o.handleNonPolicyTypes(group.resourceTypes, args)
+			nodes, err = o.handleNonPolicyTypes(group.resourceTypes)
 		}
 
 		if err != nil {
@@ -258,7 +266,7 @@ func (o *getOptions) handlePolicyTypes(resourceTypes []string) ([]*topology.Node
 	return nodes, nil
 }
 
-func (o *getOptions) handleNonPolicyTypes(resourceTypes []string, args []string) ([]*topology.Node, error) {
+func (o *getOptions) handleNonPolicyTypes(resourceTypes []string) ([]*topology.Node, error) {
 	// Build a resource builder for all non-policy types
 	b := o.factory.NewBuilder().
 		Unstructured().
@@ -268,12 +276,17 @@ func (o *getOptions) handleNonPolicyTypes(resourceTypes []string, args []string)
 		ContinueOnError()
 
 	// Add all resource types to the builder
-	// Reconstruct args from resourceTypes for builder call
-	builderArgs := resourceTypes
-	if len(args) > 1 {
-		builderArgs = append(builderArgs, args[1:]...)
+	if len(o.resourceNames) > 0 {
+		// If resource names are provided, pass them with each type
+		for _, rt := range resourceTypes {
+			b = b.ResourceTypeOrNameArgs(true, rt, o.resourceNames[0])
+		}
+	} else {
+		// Otherwise just pass the resource types
+		for _, rt := range resourceTypes {
+			b = b.ResourceTypeOrNameArgs(true, rt)
+		}
 	}
-	b = b.ResourceTypeOrNameArgs(true, builderArgs...)
 
 	infos, err := b.Do().Infos()
 	if err != nil {
