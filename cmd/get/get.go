@@ -203,7 +203,7 @@ func (o *getOptions) Run(args []string) error {
 		if group.isPolicy {
 			nodes, err = o.handlePolicyTypes(group.resourceTypes)
 		} else {
-			nodes, err = o.handleNonPolicyTypes(group.resourceTypes)
+			nodes, err = o.handleNonPolicyTypes(group.resourceTypes, args)
 		}
 
 		if err != nil {
@@ -258,7 +258,7 @@ func (o *getOptions) handlePolicyTypes(resourceTypes []string) ([]*topology.Node
 	return nodes, nil
 }
 
-func (o *getOptions) handleNonPolicyTypes(resourceTypes []string) ([]*topology.Node, error) {
+func (o *getOptions) handleNonPolicyTypes(resourceTypes []string, args []string) ([]*topology.Node, error) {
 	// Build a resource builder for all non-policy types
 	b := o.factory.NewBuilder().
 		Unstructured().
@@ -268,17 +268,12 @@ func (o *getOptions) handleNonPolicyTypes(resourceTypes []string) ([]*topology.N
 		ContinueOnError()
 
 	// Add all resource types to the builder
-	if len(o.resourceNames) > 0 {
-		// If resource names are provided, pass them with each type
-		for _, rt := range resourceTypes {
-			b = b.ResourceTypeOrNameArgs(true, rt, o.resourceNames[0])
-		}
-	} else {
-		// Otherwise just pass the resource types
-		for _, rt := range resourceTypes {
-			b = b.ResourceTypeOrNameArgs(true, rt)
-		}
+	// Reconstruct args from resourceTypes for builder call
+	builderArgs := resourceTypes
+	if len(args) > 1 {
+		builderArgs = append(builderArgs, args[1:]...)
 	}
+	b = b.ResourceTypeOrNameArgs(true, builderArgs...)
 
 	infos, err := b.Do().Infos()
 	if err != nil {
@@ -286,8 +281,9 @@ func (o *getOptions) handleNonPolicyTypes(resourceTypes []string) ([]*topology.N
 	}
 
 	sources := []*unstructured.Unstructured{}
+	var u map[string]interface{}
 	for _, info := range infos {
-		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		u, err = runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		if err != nil {
 			return nil, err
 		}
@@ -305,7 +301,7 @@ func (o *getOptions) handleNonPolicyTypes(resourceTypes []string) ([]*topology.N
 		}
 
 		policyManager := policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
-		if err := policyManager.Init(); err != nil {
+		if err = policyManager.Init(); err != nil {
 			return nil, err
 		}
 
@@ -348,7 +344,7 @@ func (o *getOptions) printNodes(nodes []*topology.Node) error {
 		EventFetcher: printer.NewDefaultEventFetcher(o.factory),
 	}
 	p := printer.NewPrinter(printerOptions)
-	defer p.Flush(o.IOStreams.Out)
+	defer p.Flush(o.Out)
 
 	// Group nodes by resource type, preserving the order of resource types as specified
 	nodesByType := make(map[string][]*topology.Node)
@@ -368,7 +364,7 @@ func (o *getOptions) printNodes(nodes []*topology.Node) error {
 		groupNodes := nodesByType[typeStr]
 		sortedGroupNodes := topology.SortedNodes(groupNodes)
 		for _, node := range sortedGroupNodes {
-			err := p.PrintNode(node, o.IOStreams.Out)
+			err := p.PrintNode(node, o.Out)
 			if err != nil {
 				return err
 			}
