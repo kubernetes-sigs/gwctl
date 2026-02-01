@@ -17,7 +17,13 @@ limitations under the License.
 package gateway
 
 import (
+	"cmp"
+	"maps"
+	"slices"
+
 	"github.com/emicklei/dot"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
@@ -46,7 +52,12 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 	// Create subgraphs for each namespace
 	clusterMap := map[string]*dot.Graph{}
-	for ns := range namespaces {
+
+	nsList := slices.Collect(maps.Keys(namespaces))
+	slices.Sort(nsList)
+
+	for _, ns := range nsList {
+
 		cluster := dotGraph.Subgraph("cluster_"+ns, dot.ClusterOption{})
 		cluster.Attr("label", "Namespace: "+ns)
 		cluster.Attr("style", "dashed")
@@ -56,8 +67,39 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 	// Create nodes.
 	dotNodeMap := map[common.GKNN]dot.Node{}
-	for _, nodeMap := range gwctlGraph.Nodes {
-		for _, node := range nodeMap {
+
+	groupKinds := make([]schema.GroupKind, 0, len(gwctlGraph.Nodes))
+	for gk := range gwctlGraph.Nodes {
+		groupKinds = append(groupKinds, gk)
+	}
+
+	slices.SortFunc(groupKinds, func(a, b schema.GroupKind) int {
+		if c := cmp.Compare(a.Group, b.Group); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Kind, b.Kind)
+	})
+
+	for _, gk := range groupKinds {
+
+		nodeMap := gwctlGraph.Nodes[gk]
+
+		namespacedNames := make([]types.NamespacedName, 0, len(nodeMap))
+
+		for nn := range nodeMap {
+			namespacedNames = append(namespacedNames, nn)
+		}
+
+		slices.SortFunc(namespacedNames, func(a, b types.NamespacedName) int {
+			if c := cmp.Compare(a.Namespace, b.Namespace); c != 0 {
+				return c
+			}
+			return cmp.Compare(a.Name, b.Name)
+		})
+
+		for _, nn := range namespacedNames {
+			node := nodeMap[nn]
+
 			// Skip Namespace nodes - they will be represented as clusters
 			if node.GKNN().GroupKind() == common.NamespaceGK {
 				continue
@@ -86,10 +128,15 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	}
 
 	// Create edges.
+
+	// TODO: Covert To Slice before iteration
 	for fromNodeGKNN, dotFromNode := range dotNodeMap {
 		fromNode := gwctlGraph.Nodes[fromNodeGKNN.GroupKind()][fromNodeGKNN.NamespacedName()]
 
+		// TODO: Covert To Slice before iteration
 		for relation, outNodeMap := range fromNode.OutNeighbors {
+
+			// TODO: Covert To Slice before iteration
 			for toNodeGKNN := range outNodeMap {
 				// Skip edges to Namespace nodes - namespace relationship are represented by cluster membership
 				if toNodeGKNN.GroupKind() == common.NamespaceGK {
