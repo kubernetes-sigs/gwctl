@@ -127,17 +127,64 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 		}
 	}
 
-	// Create edges.
+	gknnList := make([]common.GKNN, 0, len(dotNodeMap))
 
-	// TODO: Covert To Slice before iteration
-	for fromNodeGKNN, dotFromNode := range dotNodeMap {
+	for gknn := range dotNodeMap {
+		gknnList = append(gknnList, gknn)
+	}
+	slices.SortFunc(gknnList, func(a, b common.GKNN) int {
+		if c := cmp.Compare(a.Group, b.Group); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Namespace, b.Namespace); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
+
+	// Create edges.
+	for _, fromNodeGKNN := range gknnList {
+
+		dotFromNode := dotNodeMap[fromNodeGKNN]
 		fromNode := gwctlGraph.Nodes[fromNodeGKNN.GroupKind()][fromNodeGKNN.NamespacedName()]
 
-		// TODO: Covert To Slice before iteration
-		for relation, outNodeMap := range fromNode.OutNeighbors {
+		relations := make([]*topology.Relation, 0, len(fromNode.OutNeighbors))
 
-			// TODO: Covert To Slice before iteration
+		for relation := range fromNode.OutNeighbors {
+			relations = append(relations, relation)
+		}
+
+		slices.SortFunc(relations, func(a, b *topology.Relation) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
+
+		for _, relation := range relations {
+			outNodeMap := fromNode.OutNeighbors[relation]
+
+			toGKNNList := make([]common.GKNN, 0, len(outNodeMap))
+
 			for toNodeGKNN := range outNodeMap {
+				toGKNNList = append(toGKNNList, toNodeGKNN)
+			}
+
+			slices.SortFunc(toGKNNList, func(a, b common.GKNN) int {
+				if c := cmp.Compare(a.Group, b.Group); c != 0 {
+					return c
+				}
+				if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
+					return c
+				}
+				if c := cmp.Compare(a.Namespace, b.Namespace); c != 0 {
+					return c
+				}
+				return cmp.Compare(a.Name, b.Name)
+			})
+
+			for _, toNodeGKNN := range toGKNNList {
+
 				// Skip edges to Namespace nodes - namespace relationship are represented by cluster membership
 				if toNodeGKNN.GroupKind() == common.NamespaceGK {
 					continue
