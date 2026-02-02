@@ -29,6 +29,9 @@ import (
 	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
+// The DOT graph generated here needs to be deterministic. This makes sure that integration tests
+// can validate the output produced. Since the graph is created using maps,
+// we can get determinism by converting map keys to slices and sorting them.
 // TODO:
 //   - Show policy nodes. Attempt to group policy nodes along with their target
 //     nodes in a single subgraph so they get rendered closer together.
@@ -54,10 +57,10 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	clusterMap := map[string]*dot.Graph{}
 
 	nsList := slices.Collect(maps.Keys(namespaces))
+
 	slices.Sort(nsList)
 
 	for _, ns := range nsList {
-
 		cluster := dotGraph.Subgraph("cluster_"+ns, dot.ClusterOption{})
 		cluster.Attr("label", "Namespace: "+ns)
 		cluster.Attr("style", "dashed")
@@ -81,7 +84,6 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	})
 
 	for _, gk := range groupKinds {
-
 		nodeMap := gwctlGraph.Nodes[gk]
 
 		namespacedNames := make([]types.NamespacedName, 0, len(nodeMap))
@@ -132,18 +134,8 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	for gknn := range dotNodeMap {
 		gknnList = append(gknnList, gknn)
 	}
-	slices.SortFunc(gknnList, func(a, b common.GKNN) int {
-		if c := cmp.Compare(a.Group, b.Group); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(a.Namespace, b.Namespace); c != 0 {
-			return c
-		}
-		return cmp.Compare(a.Name, b.Name)
-	})
+
+	sortGKNNs(gknnList)
 
 	// Create edges.
 	for _, fromNodeGKNN := range gknnList {
@@ -170,18 +162,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 				toGKNNList = append(toGKNNList, toNodeGKNN)
 			}
 
-			slices.SortFunc(toGKNNList, func(a, b common.GKNN) int {
-				if c := cmp.Compare(a.Group, b.Group); c != 0 {
-					return c
-				}
-				if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
-					return c
-				}
-				if c := cmp.Compare(a.Namespace, b.Namespace); c != 0 {
-					return c
-				}
-				return cmp.Compare(a.Name, b.Name)
-			})
+			sortGKNNs(toGKNNList)
 
 			for _, toNodeGKNN := range toGKNNList {
 
@@ -213,6 +194,21 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	}
 
 	return dotGraph.String(), nil
+}
+
+func sortGKNNs(gknns []common.GKNN) {
+	slices.SortFunc(gknns, func(a, b common.GKNN) int {
+		if c := cmp.Compare(a.Group, b.Group); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Namespace, b.Namespace); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
 }
 
 func mapNodeColor(node *topology.Node) string {
