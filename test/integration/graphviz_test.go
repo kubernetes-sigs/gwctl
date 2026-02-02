@@ -14,8 +14,14 @@ import (
 //go:embed testdata/graphviz/graph-single-namespace.yaml
 var testdataGraphSingleNamespace string
 
+//go:embed testdata/graphviz/graph-single-namespace.gv
+var testdataGraphSingleNamespaceDot string
+
 //go:embed testdata/graphviz/graph-multi-namespace.yaml
 var testdataGraphMultiNamespace string
+
+//go:embed testdata/graphviz/graph-multi-namespace.gv
+var testdataGraphMultiNamespaceDot string
 
 func TestGraphviz(t *testing.T) {
 
@@ -28,29 +34,20 @@ func TestGraphviz(t *testing.T) {
 		wantOut   string
 	}{
 		{
-			name:      "graph single namespace",
+			name:      "get gateways -o graph -n default",
 			inputArgs: []string{"gateways", "-o", "graph"},
 			namespace: "default",
 			describe:  false,
 			yaml:      testdataGraphSingleNamespace,
-			wantOut: `
-digraph  {
-	subgraph cluster_s1 {
-		color="black";label="Namespace: default";style="dashed";
-		n3[color="#ebcb8b",label="Gateway\ndemo-gateway",style="filled"];
-		n5[color="#a3be8c",label="HTTPRoute\ndemo-httproute",style="filled"];
-		n2[color="#88c0d0",label="Service\ndemo-svc",style="filled"];
-		
-	}
-	compound="true";rankdir="BT";
-	n4[color="#e5e9f0",label="GatewayClass\ndemo-gateway-class",style="filled"];
-	n3->n4[label="GatewayClass"];
-	n5->n3[label="ParentRef"];
-	n2->n5[dir="back",label="BackendRef"];
-	
-}
-
-`,
+			wantOut:   testdataGraphSingleNamespaceDot,
+		},
+		{
+			name:      "get gateways -o graph -A",
+			inputArgs: []string{"gateways", "-o", "graph"},
+			namespace: "", // All namespaces
+			describe:  false,
+			yaml:      testdataGraphMultiNamespace,
+			wantOut:   testdataGraphMultiNamespaceDot,
 		},
 	}
 

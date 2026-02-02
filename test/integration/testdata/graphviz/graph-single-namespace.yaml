@@ -1,17 +1,22 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  name: demo-gateway-class
+  name: foo-com-external-gateway-class
 spec:
-  controllerName: example.com/gateway-controller
+  controllerName: foo.com/external-gateway-class
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: demo-gateway
+  name: gateway-1
   namespace: default
 spec:
-  gatewayClassName: demo-gateway-class
+  gatewayClassName: foo-com-external-gateway-class
   listeners:
   - name: http
     protocol: HTTP
@@ -20,34 +25,34 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: demo-httproute
+  name: httproute-1
   namespace: default
 spec:
   parentRefs:
   - kind: Gateway
-    name: demo-gateway
+    name: gateway-1
   hostnames:
-  - "example.com"
+  - "demo.com"
   rules:
   - matches:
     - path:
         type: PathPrefix
-        value: /demo
+        value: /example
     backendRefs:
-    - name: demo-svc
+    - name: svc-1
       port: 80
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: demo-svc
+  name: svc-1
   namespace: default
 spec:
   type: ClusterIP
   selector:
     app: demo-app
   ports:
-  - name: http
+  - name: tcp
     port: 80
     protocol: TCP
     targetPort: 8080
