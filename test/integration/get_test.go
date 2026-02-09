@@ -214,6 +214,58 @@ Events:
   Warning  SYNC    Unknown  my-gateway-controller  test message
 `,
 		},
+		{
+			name:      "get gateways -o json -n default",
+			inputArgs: []string{"gateways", "-o", "json"},
+			namespace: "default",
+			wantOut: `
+{
+    "apiVersion": "gateway.networking.k8s.io/v1",
+    "kind": "Gateway",
+    "metadata": {
+        "name": "gateway-3",
+        "namespace": "default"
+    },
+    "spec": {
+        "gatewayClassName": "foo-com-external-gateway-class",
+        "listeners": [
+            {
+                "name": "http",
+                "port": 80,
+                "protocol": "HTTP"
+            }
+        ]
+    }
+}
+`,
+		},
+		{
+			name:      "get gateways -o yaml -n default",
+			inputArgs: []string{"gateways", "-o", "yaml"},
+			namespace: "default",
+			wantOut: `
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-3
+  namespace: default
+spec:
+  gatewayClassName: foo-com-external-gateway-class
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+`,
+		},
+		{
+			name:      "get gateways -o wide -n default",
+			inputArgs: []string{"gateways", "-o", "wide"},
+			namespace: "default",
+			wantOut: `
+NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE        POLICIES  HTTPROUTES
+default    gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>  0         1
+`,
+		},
 	}
 
 	for _, tc := range testCases {
