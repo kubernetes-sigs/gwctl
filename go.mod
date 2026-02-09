@@ -3,7 +3,7 @@ module sigs.k8s.io/gwctl
 go 1.25.3
 
 require (
-	github.com/emicklei/dot v1.10.0
+	github.com/emicklei/dot v1.11.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.10.2
