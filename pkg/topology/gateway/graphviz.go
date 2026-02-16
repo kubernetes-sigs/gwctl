@@ -139,7 +139,6 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 	// Create edges.
 	for _, fromNodeGKNN := range gknnList {
-
 		dotFromNode := dotNodeMap[fromNodeGKNN]
 		fromNode := gwctlGraph.Nodes[fromNodeGKNN.GroupKind()][fromNodeGKNN.NamespacedName()]
 
@@ -165,7 +164,6 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 			sortGKNNs(toGKNNList)
 
 			for _, toNodeGKNN := range toGKNNList {
-
 				// Skip edges to Namespace nodes - namespace relationship are represented by cluster membership
 				if toNodeGKNN.GroupKind() == common.NamespaceGK {
 					continue

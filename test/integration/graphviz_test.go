@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+
 	cmdget "sigs.k8s.io/gwctl/cmd/get"
 	"sigs.k8s.io/gwctl/pkg/common"
 )
@@ -24,7 +25,6 @@ var testdataGraphMultiNamespace string
 var testdataGraphMultiNamespaceDot string
 
 func TestGraphviz(t *testing.T) {
-
 	testCases := []struct {
 		name      string
 		inputArgs []string
@@ -52,9 +52,7 @@ func TestGraphviz(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-
 		t.Run(tc.name, func(t *testing.T) {
-
 			factory := NewTestFactory(t, tc.yaml)
 
 			factory.namespace = tc.namespace
@@ -78,7 +76,5 @@ func TestGraphviz(t *testing.T) {
 				t.Fatalf("Unexpected diff:\n\ngot =\n\n%v\n\nwant =\n\n%v\n\ndiff (-want, +got) =\n\n%v", got, want, common.MultiLine(diff))
 			}
 		})
-
 	}
-
 }
