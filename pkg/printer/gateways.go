@@ -40,11 +40,9 @@ func (p *TablePrinter) printGateway(gatewayNode *topology.Node, w io.Writer) err
 	}
 
 	if p.table == nil {
-		var columnNames []string
+		columnNames := append(namespacedBaseColumnNames(p.AllNamespaces), "CLASS", "ADDRESSES", "PORTS", "PROGRAMMED", "AGE")
 		if p.OutputFormat == OutputFormatWide {
-			columnNames = []string{"NAMESPACE", "NAME", "CLASS", "ADDRESSES", "PORTS", "PROGRAMMED", "AGE", "POLICIES", "HTTPROUTES"}
-		} else {
-			columnNames = []string{"NAMESPACE", "NAME", "CLASS", "ADDRESSES", "PORTS", "PROGRAMMED", "AGE"}
+			columnNames = append(columnNames, "POLICIES", "HTTPROUTES")
 		}
 		p.table = &Table{
 			ColumnNames:  columnNames,
@@ -83,15 +81,7 @@ func (p *TablePrinter) printGateway(gatewayNode *topology.Node, w io.Writer) err
 		age = duration.HumanDuration(p.Clock.Since(creationTimestamp.Time))
 	}
 
-	row := []string{
-		gateway.GetNamespace(),
-		gateway.GetName(),
-		string(gateway.Spec.GatewayClassName),
-		addressesOutput,
-		portsOutput,
-		programmedStatus,
-		age,
-	}
+	row := append(rowPrefixNamespaced(gateway, p.AllNamespaces), string(gateway.Spec.GatewayClassName), addressesOutput, portsOutput, programmedStatus, age)
 	if p.OutputFormat == OutputFormatWide {
 		policiesMap, err := directlyattachedpolicy.Access(gatewayNode)
 		if err != nil {
