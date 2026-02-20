@@ -1,6 +1,6 @@
 module sigs.k8s.io/gwctl
 
-go 1.25.3
+go 1.26.0
 
 require (
 	github.com/emicklei/dot v1.11.0
