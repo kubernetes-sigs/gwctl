@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// nolint:revive
-package utils
+package utils //nolint:revive
 
 import (
 	"sigs.k8s.io/gwctl/pkg/extension/notfoundrefvalidator"
