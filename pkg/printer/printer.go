@@ -111,6 +111,10 @@ func (p *TablePrinter) checkTypeChange(newType string, w io.Writer) error {
 	var err error
 	if p.curType != "" && p.curType != newType && p.table != nil {
 		err = p.table.Write(w, 0)
+		if err == nil && newType != "" {
+			// Add a blank line between different resource types
+			fmt.Fprintf(w, "\n")
+		}
 		p.table = nil
 	}
 	p.curType = newType
