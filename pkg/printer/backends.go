@@ -39,11 +39,9 @@ func (p *TablePrinter) printBackend(backendNode *topology.Node, w io.Writer) err
 	}
 
 	if p.table == nil {
-		var columnNames []string
+		columnNames := append(namespacedBaseColumnNames(p.AllNamespaces), "TYPE", "AGE")
 		if p.OutputFormat == OutputFormatWide {
-			columnNames = []string{"NAMESPACE", "NAME", "TYPE", "AGE", "REFERRED BY ROUTES", "POLICIES"}
-		} else {
-			columnNames = []string{"NAMESPACE", "NAME", "TYPE", "AGE"}
+			columnNames = append(columnNames, "REFERRED BY ROUTES", "POLICIES")
 		}
 		p.table = &Table{
 			ColumnNames:  columnNames,
@@ -52,9 +50,6 @@ func (p *TablePrinter) printBackend(backendNode *topology.Node, w io.Writer) err
 	}
 
 	backend := backendNode.Object
-
-	namespace := backend.GetNamespace()
-	name := backend.GetName()
 	backendType := backend.GetKind()
 
 	age := "<unknown>"
@@ -63,12 +58,7 @@ func (p *TablePrinter) printBackend(backendNode *topology.Node, w io.Writer) err
 		age = duration.HumanDuration(p.Clock.Since(creationTimestamp.Time))
 	}
 
-	row := []string{
-		namespace,
-		name,
-		backendType,
-		age,
-	}
+	row := append(rowPrefixNamespaced(backend, p.AllNamespaces), backendType, age)
 	if p.OutputFormat == OutputFormatWide {
 		httpRouteNodes := maps.Values(topologygw.BackendNode(backendNode).HTTPRoutes())
 		sortedHTTPRouteNodes := topology.SortedNodes(httpRouteNodes)
