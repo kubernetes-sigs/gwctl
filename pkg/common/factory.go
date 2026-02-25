@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// nolint:revive
-package common
+package common //nolint:revive
 
 import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
