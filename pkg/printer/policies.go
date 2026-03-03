@@ -100,7 +100,7 @@ func (p *TablePrinter) printPolicy(policyNode *topology.Node, w io.Writer) error
 }
 
 func (p *TablePrinter) printPolicyCRD(policyCRDNode *topology.Node, w io.Writer) error {
-	if err := p.checkTypeChange("Policy", w); err != nil {
+	if err := p.checkTypeChange("PolicyCRD", w); err != nil {
 		return err
 	}
 
