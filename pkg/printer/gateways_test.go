@@ -27,24 +27,48 @@ import (
 )
 
 func TestTablePrinter_printGateway(t *testing.T) {
-	options := PrinterOptions{}
-	p := &TablePrinter{PrinterOptions: options}
-	out := &bytes.Buffer{}
-
-	for _, ns := range testData(t)[common.GatewayGK] {
-		p.printGateway(ns, out)
-		p.Flush(out)
-	}
-
-	wantOut := `
+	tests := []struct {
+		name    string
+		options PrinterOptions
+		wantOut string
+	}{
+		{
+			name:    "default",
+			options: PrinterOptions{},
+			wantOut: `
+NAME       CLASS            ADDRESSES                   PORTS  PROGRAMMED  AGE
+gateway-1  gateway-class-1  10.0.0.1,10.0.0.2 + 1 more  80     True        <unknown>
+`,
+		},
+		{
+			name: "all namespaces",
+			options: PrinterOptions{
+				AllNamespaces: true,
+			},
+			wantOut: `
 NAMESPACE  NAME       CLASS            ADDRESSES                   PORTS  PROGRAMMED  AGE
 ns-1       gateway-1  gateway-class-1  10.0.0.1,10.0.0.2 + 1 more  80     True        <unknown>
-`
+`,
+		},
+	}
 
-	got := common.MultiLine(out.String())
-	want := common.MultiLine(strings.TrimPrefix(wantOut, "\n"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &TablePrinter{PrinterOptions: tt.options}
+			out := &bytes.Buffer{}
 
-	if diff := cmp.Diff(want, got, common.MultiLineTransformer); diff != "" {
-		t.Fatalf("Unexpected diff:\n\ngot =\n\n%v\n\nwant =\n\n%v\n\ndiff (-want, +got) =\n\n%v", got, want, common.MultiLine(diff))
+			for _, ns := range testData(t)[common.GatewayGK] {
+				p.printGateway(ns, out)
+				p.Flush(out)
+			}
+
+			got := common.MultiLine(out.String())
+			want := common.MultiLine(strings.TrimPrefix(tt.wantOut, "\n"))
+
+			if diff := cmp.Diff(want, got, common.MultiLineTransformer); diff != "" {
+				t.Fatalf("Unexpected diff:\n\ngot =\n\n%v\n\nwant =\n\n%v\n\ndiff (-want, +got) =\n\n%v",
+					got, want, common.MultiLine(diff))
+			}
+		})
 	}
 }
