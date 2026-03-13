@@ -97,7 +97,7 @@ func (f *TestFactory) KubeConfigNamespace() (string, bool, error) {
 func mustRestMapper(t *testing.T, infos []*resource.Info) meta.RESTMapper {
 	resourceList := []*metav1.APIResourceList{
 		{
-			GroupVersion: gatewayv1.SchemeGroupVersion.String(),
+			GroupVersion: gatewayv1.GroupVersion.String(),
 			APIResources: []metav1.APIResource{
 				{Name: "gatewayclasses", Namespaced: false, Kind: common.GatewayClassGK.Kind},
 				{Name: "gateways", Namespaced: true, Kind: common.GatewayGK.Kind},
