@@ -17,15 +17,15 @@ limitations under the License.
 package gateway
 
 import (
+	"fmt"
+
 	"github.com/emicklei/dot"
+	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
 
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
-// TODO:
-//   - Show policy nodes. Attempt to group policy nodes along with their target
-//     nodes in a single subgraph so they get rendered closer together.
 func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	dotGraph := dot.NewGraph(dot.Directed)
 	dotGraph.Attr("rankdir", "BT")
@@ -49,7 +49,7 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	for ns := range namespaces {
 		cluster := dotGraph.Subgraph("cluster_"+ns, dot.ClusterOption{})
 		cluster.Attr("label", "Namespace: "+ns)
-		cluster.Attr("style", "dashed")
+		cluster.Attr("style", "dashed,rounded")
 		cluster.Attr("color", "black")
 		clusterMap[ns] = cluster
 	}
@@ -71,7 +71,8 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 			}
 
 			dotNode := targetGraph.Node(node.GKNN().String()).
-				Attr("style", "filled").
+				Attr("shape", "box").
+				Attr("style", "filled,rounded").
 				Attr("color", mapNodeColor(node))
 
 			dotNodeMap[node.GKNN()] = dotNode
@@ -82,12 +83,32 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 				gk.Group = ""
 			}
 			dotNode.Label(gk.String() + "\n" + node.GKNN().Name)
+
+			policies, err := directlyattachedpolicy.Access(node)
+			if err != nil {
+				return "", fmt.Errorf("failed to access direct attached policies: %w", err)
+			}
+			for gknn := range policies {
+				dotNodeMap[gknn] = targetGraph.Node(gknn.String()).
+					Label(gknn.Kind+"\n"+gknn.Name).
+					Attr("shape", "box").
+					Attr("style", "filled,rounded").
+					Attr("color", "#ffd2d2")
+			}
 		}
 	}
 
 	// Create edges.
 	for fromNodeGKNN, dotFromNode := range dotNodeMap {
-		fromNode := gwctlGraph.Nodes[fromNodeGKNN.GroupKind()][fromNodeGKNN.NamespacedName()]
+		nodes, ok := gwctlGraph.Nodes[fromNodeGKNN.GroupKind()]
+		if !ok {
+			continue
+		}
+
+		fromNode, ok := nodes[fromNodeGKNN.NamespacedName()]
+		if !ok {
+			continue
+		}
 
 		for relation, outNodeMap := range fromNode.OutNeighbors {
 			for toNodeGKNN := range outNodeMap {
@@ -116,6 +137,16 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 				}
 			}
 		}
+
+		policies, err := directlyattachedpolicy.Access(fromNode)
+		if err != nil {
+			return "", fmt.Errorf("failed to access direct attached policies: %w", err)
+		}
+		for gknn := range policies {
+			dotGraph.Edge(dotFromNode, dotNodeMap[gknn], "TargetRef").
+				Attr("dir", "back").
+				Attr("constraint", "false")
+		}
 	}
 
 	return dotGraph.String(), nil
@@ -124,13 +155,13 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 func mapNodeColor(node *topology.Node) string {
 	switch node.GKNN().GroupKind() {
 	case common.GatewayClassGK:
-		return "#e5e9f0"
+		return "#e6d8ff"
 	case common.GatewayGK:
-		return "#ebcb8b"
+		return "#cfe0ff"
 	case common.HTTPRouteGK:
-		return "#a3be8c"
+		return "#f7efc6"
 	case common.ServiceGK:
-		return "#88c0d0"
+		return "#d6f5df"
 	}
 	return "#d8dee9"
 }
