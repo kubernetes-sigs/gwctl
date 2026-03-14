@@ -334,8 +334,6 @@ func classifyErrors(errorsBeforeChanges, errorsAfterChanges map[string]bool) (ne
 		existsAfter := errorsAfterChanges[s]
 		if !existsAfter {
 			fixedIssues = append(fixedIssues, s)
-		} else {
-			unchangedIssues = append(unchangedIssues, s)
 		}
 	}
 	slices.Sort(newIssues)
