@@ -19,11 +19,12 @@ package gateway
 import (
 	"cmp"
 	"fmt"
+	"maps"
+	"slices"
+
 	"github.com/emicklei/dot"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"maps"
-	"slices"
 
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
