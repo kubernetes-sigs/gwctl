@@ -52,7 +52,7 @@ func (a *Extension) Execute(graph *topology.Graph) error {
 				}}
 
 				if _, ok := graph.Nodes[toNodeGKNN.GroupKind()]; !ok {
-					if err := a.puErrorInNode(fromNode, err); err != nil {
+					if err := a.putErrorInNode(fromNode, err); err != nil {
 						return err
 					}
 					klog.V(1).Info(err)
@@ -60,7 +60,7 @@ func (a *Extension) Execute(graph *topology.Graph) error {
 				}
 				toNode := graph.Nodes[toNodeGKNN.GroupKind()][toNodeGKNN.NamespacedName()]
 				if toNode == nil {
-					if err := a.puErrorInNode(fromNode, err); err != nil {
+					if err := a.putErrorInNode(fromNode, err); err != nil {
 						return err
 					}
 					klog.V(1).Info(err)
@@ -71,7 +71,7 @@ func (a *Extension) Execute(graph *topology.Graph) error {
 	return nil
 }
 
-func (a *Extension) puErrorInNode(node *topology.Node, notFoundErr error) error {
+func (a *Extension) putErrorInNode(node *topology.Node, notFoundErr error) error {
 	if node.Metadata == nil {
 		node.Metadata = map[string]any{}
 	}
@@ -84,6 +84,12 @@ func (a *Extension) puErrorInNode(node *topology.Node, notFoundErr error) error 
 	data, err := Access(node)
 	if err != nil {
 		return err
+	}
+	// Check for duplicate errors before appending
+	for _, existingErr := range data.Errors {
+		if existingErr.Error() == notFoundErr.Error() {
+			return nil // already reported
+		}
 	}
 	data.Errors = append(data.Errors, notFoundErr)
 	return nil
