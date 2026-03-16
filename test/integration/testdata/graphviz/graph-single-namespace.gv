@@ -1,0 +1,16 @@
+digraph  {
+	subgraph cluster_s1 {
+		color="black";label="Namespace: default";style="dashed";
+		n2[color="#ebcb8b",label="Gateway\ngateway-1",style="filled"];
+		n4[color="#a3be8c",label="HTTPRoute\nhttproute-1",style="filled"];
+		n5[color="#88c0d0",label="Service\nsvc-1",style="filled"];
+		
+	}
+	compound="true";rankdir="BT";
+	n3[color="#e5e9f0",label="GatewayClass\nfoo-com-external-gateway-class",style="filled"];
+	n2->n3[label="GatewayClass"];
+	n4->n2[label="ParentRef"];
+	n5->n4[dir="back",label="BackendRef"];
+	
+}
+

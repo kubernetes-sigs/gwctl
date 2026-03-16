@@ -17,12 +17,22 @@ limitations under the License.
 package gateway
 
 import (
+	"cmp"
+	"fmt"
+	"maps"
+	"slices"
+
 	"github.com/emicklei/dot"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
 )
 
+// The DOT graph generated here needs to be deterministic. This makes sure that integration tests
+// can validate the output produced. Since the graph is created using maps,
+// we can get determinism by converting map keys to slices and sorting them.
 // TODO:
 //   - Show policy nodes. Attempt to group policy nodes along with their target
 //     nodes in a single subgraph so they get rendered closer together.
@@ -46,7 +56,8 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 	// Create subgraphs for each namespace
 	clusterMap := map[string]*dot.Graph{}
-	for ns := range namespaces {
+
+	for _, ns := range slices.Sorted(maps.Keys(namespaces)) {
 		cluster := dotGraph.Subgraph("cluster_"+ns, dot.ClusterOption{})
 		cluster.Attr("label", "Namespace: "+ns)
 		cluster.Attr("style", "dashed")
@@ -56,8 +67,13 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 	// Create nodes.
 	dotNodeMap := map[common.GKNN]dot.Node{}
-	for _, nodeMap := range gwctlGraph.Nodes {
-		for _, node := range nodeMap {
+
+	for _, gk := range slices.SortedFunc(maps.Keys(gwctlGraph.Nodes), compareByString[schema.GroupKind]) {
+		nodeMap := gwctlGraph.Nodes[gk]
+
+		for _, nn := range slices.SortedFunc(maps.Keys(nodeMap), compareByString[types.NamespacedName]) {
+			node := nodeMap[nn]
+
 			// Skip Namespace nodes - they will be represented as clusters
 			if node.GKNN().GroupKind() == common.NamespaceGK {
 				continue
@@ -86,11 +102,16 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	}
 
 	// Create edges.
-	for fromNodeGKNN, dotFromNode := range dotNodeMap {
+	for _, fromNodeGKNN := range slices.SortedFunc(maps.Keys(dotNodeMap), compareByString[common.GKNN]) {
+		dotFromNode := dotNodeMap[fromNodeGKNN]
 		fromNode := gwctlGraph.Nodes[fromNodeGKNN.GroupKind()][fromNodeGKNN.NamespacedName()]
 
-		for relation, outNodeMap := range fromNode.OutNeighbors {
-			for toNodeGKNN := range outNodeMap {
+		for _, relation := range slices.SortedFunc(maps.Keys(fromNode.OutNeighbors), func(a, b *topology.Relation) int {
+			return cmp.Compare(a.Name, b.Name)
+		}) {
+			outNodeMap := fromNode.OutNeighbors[relation]
+
+			for _, toNodeGKNN := range slices.SortedFunc(maps.Keys(outNodeMap), compareByString[common.GKNN]) {
 				// Skip edges to Namespace nodes - namespace relationship are represented by cluster membership
 				if toNodeGKNN.GroupKind() == common.NamespaceGK {
 					continue
@@ -119,6 +140,10 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 	}
 
 	return dotGraph.String(), nil
+}
+
+func compareByString[T fmt.Stringer](a, b T) int {
+	return cmp.Compare(a.String(), b.String())
 }
 
 func mapNodeColor(node *topology.Node) string {
