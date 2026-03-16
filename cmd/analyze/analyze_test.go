@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package analyze
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestClassifyErrors(t *testing.T) {
@@ -74,27 +76,9 @@ func TestClassifyErrors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			gotNew, gotFixed, gotUnchanged := classifyErrors(tc.errorsBeforeChanges, tc.errorsAfterChanges)
-			if !equalStringSlices(gotNew, tc.wantNew) {
-				t.Errorf("newIssues: got %v, want %v", gotNew, tc.wantNew)
-			}
-			if !equalStringSlices(gotFixed, tc.wantFixed) {
-				t.Errorf("fixedIssues: got %v, want %v", gotFixed, tc.wantFixed)
-			}
-			if !equalStringSlices(gotUnchanged, tc.wantUnchanged) {
-				t.Errorf("unchangedIssues: got %v, want %v", gotUnchanged, tc.wantUnchanged)
-			}
+			assert.ElementsMatch(t, tc.wantNew, gotNew, "newIssues")
+			assert.ElementsMatch(t, tc.wantFixed, gotFixed, "fixedIssues")
+			assert.ElementsMatch(t, tc.wantUnchanged, gotUnchanged, "unchangedIssues")
 		})
 	}
-}
-
-func equalStringSlices(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
