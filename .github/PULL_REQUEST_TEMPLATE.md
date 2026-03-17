@@ -31,3 +31,23 @@ Add one of the following kinds:
 Usage: `Fixes #<issue number>`, or `Fixes (paste link of issue)`.
 -->
 Fixes #
+
+**Generative AI Usage Disclosure**
+<!--
+Using AI tools to help write your PR is acceptable, but as the author, you are responsible for understanding every change. 
+Do not leave the first review of AI generated changes to the reviewers, verify the changes (code review, testing, etc.) before submitting your PR.
+
+For more details please review guidelines on responsible Generative AI usage:
+* https://www.linuxfoundation.org/legal/generative-ai
+* https://www.kubernetes.dev/docs/guide/pull-requests/#ai-guidance
+
+If you used AI tools in preparing this PR, please disclose which tools and how they were used.
+-->
+- [ ] No AI tools were used
+- [ ] AI tools were used (complete below)
+
+*AI Tools used:*
+<!-- ChatGPT, Claude, GitHub Copilot -->
+
+*How they were used:*
+<!-- Describe what the AI helped with (e.g., code generation, refactoring, documentation, tests) and which parts of the PR were affected -->
