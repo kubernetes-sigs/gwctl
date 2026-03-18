@@ -55,7 +55,7 @@ func (f *ForFlag) ToOption() (common.GKNN, error) {
 			objRef = common.GKNN{Kind: parts[0], Namespace: parts[1], Name: parts[2]}
 		}
 		switch strings.ToLower(objRef.Kind) {
-		case "gatewayclass", "gateawyclasses":
+		case "gatewayclass", "gatewayclasses":
 			objRef.Group = gatewayv1.GroupVersion.Group
 			objRef.Kind = "GatewayClass"
 			objRef.Namespace = ""
