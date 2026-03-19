@@ -86,7 +86,7 @@ func (a *Extension) putErrorInNode(node *topology.Node, notFoundErr error) error
 		return err
 	}
 
-	if slices.Contains(data.Errors, notFoundErr)  {
+	if slices.Contains(data.Errors, notFoundErr) {
 		// error is already reported
 		return nil
 	}
