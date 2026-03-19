@@ -86,11 +86,9 @@ func (a *Extension) putErrorInNode(node *topology.Node, notFoundErr error) error
 		return err
 	}
 
-	for _, existingErr := range data.Errors {
-		if existingErr == notFoundErr {
-			// error is already reported
-			return nil
-		}
+	if slices.Contains(data.Errors, notFoundErr)  {
+		// error is already reported
+		return nil
 	}
 	data.Errors = append(data.Errors, notFoundErr)
 	return nil
