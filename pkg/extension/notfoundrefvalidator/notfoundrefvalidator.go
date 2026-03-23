@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"k8s.io/klog/v2"
+	"slices"
 
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
@@ -86,11 +87,11 @@ func (a *Extension) putErrorInNode(node *topology.Node, notFoundErr error) error
 		return err
 	}
 
-	if slices.Contains(data.Errors, notFoundErr) {
-		// error is already reported
-		return nil
+	if !slices.Contains(data.Errors, notFoundErr) {
+		// new error
+		data.Errors = append(data.Errors, notFoundErr)
 	}
-	data.Errors = append(data.Errors, notFoundErr)
+
 	return nil
 }
 
