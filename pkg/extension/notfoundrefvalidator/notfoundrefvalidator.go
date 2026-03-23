@@ -18,9 +18,9 @@ package notfoundrefvalidator
 
 import (
 	"fmt"
+	"slices"
 
 	"k8s.io/klog/v2"
-	"slices"
 
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/topology"
