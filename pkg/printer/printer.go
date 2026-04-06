@@ -60,10 +60,11 @@ func AllowedOutputFormatsForHelp() []string {
 }
 
 type PrinterOptions struct { //nolint:revive
-	OutputFormat OutputFormat
-	Description  bool
-	Clock        clock.Clock
-	EventFetcher eventFetcher
+	OutputFormat  OutputFormat
+	Description   bool
+	Clock         clock.Clock
+	EventFetcher  eventFetcher
+	AllNamespaces bool
 }
 
 type Printer interface {
