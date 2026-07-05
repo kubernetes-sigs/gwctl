@@ -318,6 +318,80 @@ NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE    
 gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>  0         1
 `,
 		},
+		{
+			name:      "get gateways,httproutes -n test",
+			inputArgs: []string{"gateways,httproutes"},
+			namespace: "test",
+			wantOut: `
+NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
+test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
+test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
+NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+`,
+		},
+		{
+			name:      "get gateways,services",
+			inputArgs: []string{"gateways,services"},
+			namespace: "default",
+			wantOut: `
+NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
+default    gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>
+NAMESPACE  NAME   TYPE     AGE
+default    svc-3  Service  <unknown>
+`,
+		},
+		{
+			name:      "get httproutes,policies -n test",
+			inputArgs: []string{"httproutes,policies"},
+			namespace: "test",
+			wantOut: `
+NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+`,
+		},
+		{
+			name:      "get policies,policycrds -A",
+			inputArgs: []string{"policies,policycrds", "-A"},
+			namespace: "",
+			wantOut: `
+NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+default    policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       Partial   <unknown>
+test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+NAME                                          POLICY TYPE  SCOPE       AGE
+backendtlspolicies.gateway.networking.k8s.io  Direct       Namespaced  <unknown>
+`,
+		},
+		{
+			name:      "get gateways,gatewayclasses -A",
+			inputArgs: []string{"gateways,gatewayclasses", "-A"},
+			namespace: "",
+			wantOut: `
+NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
+default    gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>
+test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
+test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
+NAME                            CONTROLLER                      ACCEPTED  AGE
+bar-com-internal-gateway-class  bar.baz/internal-gateway-class  Unknown   <unknown>
+foo-com-external-gateway-class  foo.com/external-gateway-class  Unknown   <unknown>
+`,
+		},
+		{
+			name:      "get policies,gateways -n test",
+			inputArgs: []string{"policies,gateways"},
+			namespace: "test",
+			wantOut: `
+NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
+test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
+test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
+`,
+		},
 	}
 
 	for _, tc := range testCases {
