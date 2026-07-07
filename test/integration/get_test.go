@@ -326,6 +326,7 @@ gateway-3  foo-com-external-gateway-class             80     Unknown     <unknow
 NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
 test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
 test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
+
 NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
 test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
 test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
@@ -338,6 +339,7 @@ test       httproute-2  example.com,example2.com + 1 more  2            Unknown 
 			wantOut: `
 NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
 default    gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>
+
 NAMESPACE  NAME   TYPE     AGE
 default    svc-3  Service  <unknown>
 `,
@@ -349,6 +351,7 @@ default    svc-3  Service  <unknown>
 			wantOut: `
 NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
 test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+
 NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
 test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
 test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
@@ -362,6 +365,7 @@ test       httproute-2  example.com,example2.com + 1 more  2            Unknown 
 NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
 default    policy-2  BackendTLSPolicy.gateway.networking.k8s.io  Service/default/svc-3                   Direct       Partial   <unknown>
 test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+
 NAME                                          POLICY TYPE  SCOPE       AGE
 backendtlspolicies.gateway.networking.k8s.io  Direct       Namespaced  <unknown>
 `,
@@ -375,6 +379,7 @@ NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMM
 default    gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>
 test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
 test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
+
 NAME                            CONTROLLER                      ACCEPTED  AGE
 bar-com-internal-gateway-class  bar.baz/internal-gateway-class  Unknown   <unknown>
 foo-com-external-gateway-class  foo.com/external-gateway-class  Unknown   <unknown>
@@ -387,6 +392,7 @@ foo-com-external-gateway-class  foo.com/external-gateway-class  Unknown   <unkno
 			wantOut: `
 NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
 test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+
 NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
 test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
 test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>

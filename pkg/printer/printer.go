@@ -113,6 +113,9 @@ func (p *TablePrinter) checkTypeChange(newType string, w io.Writer) error {
 	if p.curType != "" && p.curType != newType && p.table != nil {
 		err = p.table.Write(w, 0)
 		p.table = nil
+		if err == nil && newType != "" {
+			_, err = fmt.Fprintln(w)
+		}
 	}
 	p.curType = newType
 	return err
