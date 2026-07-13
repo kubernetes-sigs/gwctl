@@ -323,13 +323,13 @@ gateway-3  foo-com-external-gateway-class             80     Unknown     <unknow
 			inputArgs: []string{"gateways,httproutes"},
 			namespace: "test",
 			wantOut: `
-NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
-test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
-test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
+NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
+gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
+gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
 
-NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
-test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
-test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
 `,
 		},
 		{
@@ -337,11 +337,11 @@ test       httproute-2  example.com,example2.com + 1 more  2            Unknown 
 			inputArgs: []string{"gateways,services"},
 			namespace: "default",
 			wantOut: `
-NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
-default    gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>
+NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
+gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>
 
-NAMESPACE  NAME   TYPE     AGE
-default    svc-3  Service  <unknown>
+NAME   TYPE     AGE
+svc-3  Service  <unknown>
 `,
 		},
 		{
@@ -349,12 +349,12 @@ default    svc-3  Service  <unknown>
 			inputArgs: []string{"httproutes,policies"},
 			namespace: "test",
 			wantOut: `
-NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
-test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
 
-NAMESPACE  NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
-test       httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
-test       httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
 `,
 		},
 		{
@@ -390,12 +390,12 @@ foo-com-external-gateway-class  foo.com/external-gateway-class  Unknown   <unkno
 			inputArgs: []string{"policies,gateways"},
 			namespace: "test",
 			wantOut: `
-NAMESPACE  NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
-test       policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
+NAME      KIND                                        TARGET(S)                               POLICY TYPE  ACCEPTED  AGE
+policy-1  BackendTLSPolicy.gateway.networking.k8s.io  Service/test/svc-1, Service/test/svc-2  Direct       True      <unknown>
 
-NAMESPACE  NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
-test       gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
-test       gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
+NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE
+gateway-1  foo-com-external-gateway-class             80     Unknown     <unknown>
+gateway-2  bar-com-internal-gateway-class             443    Unknown     <unknown>
 `,
 		},
 	}
