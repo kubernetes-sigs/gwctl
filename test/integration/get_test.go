@@ -124,6 +124,37 @@ test       httproute-2  example.com,example2.com + 1 more  2            Unknown 
 `,
 		},
 		{
+			name:      "get grpcroutes -n test",
+			inputArgs: []string{"grpcroutes"},
+			namespace: "test",
+			wantOut: `
+NAME         HOSTNAMES      PARENT REFS  ACCEPTED  RESOLVED  AGE
+grpcroute-1  grpc.demo.com  1            Unknown   Unknown   <unknown>
+`,
+		},
+		{
+			name:      "get grpcroutes -A",
+			inputArgs: []string{"grpcroutes", "-A"},
+			namespace: "", // All namespaces
+			wantOut: `
+NAMESPACE  NAME         HOSTNAMES      PARENT REFS  ACCEPTED  RESOLVED  AGE
+test       grpcroute-1  grpc.demo.com  1            Unknown   Unknown   <unknown>
+`,
+		},
+		{
+			name:      "get httproutes,grpcroutes -n test",
+			inputArgs: []string{"httproutes,grpcroutes"},
+			namespace: "test",
+			wantOut: `
+NAME         HOSTNAMES      PARENT REFS  ACCEPTED  RESOLVED  AGE
+grpcroute-1  grpc.demo.com  1            Unknown   Unknown   <unknown>
+
+NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+`,
+		},
+		{
 			name:      "get services",
 			inputArgs: []string{"services"},
 			namespace: "default",
@@ -185,11 +216,13 @@ Status: {}
 AttachedRoutes:
   Kind       Name
   ----       ----
+  GRPCRoute  test/grpcroute-1
   HTTPRoute  test/httproute-1
   HTTPRoute  test/httproute-2
 Backends:
   Kind     Name
   ----     ----
+  Service  test/svc-2
   Service  test/svc-1
   Service  test/svc-2
 DirectlyAttachedPolicies: <none>
@@ -251,11 +284,13 @@ Status: {}
 AttachedRoutes:
   Kind       Name
   ----       ----
+  GRPCRoute  test/grpcroute-1
   HTTPRoute  test/httproute-1
   HTTPRoute  test/httproute-2
 Backends:
   Kind     Name
   ----     ----
+  Service  test/svc-2
   Service  test/svc-1
   Service  test/svc-2
 DirectlyAttachedPolicies: <none>
@@ -314,7 +349,7 @@ spec:
 			inputArgs: []string{"gateways", "-o", "wide"},
 			namespace: "default",
 			wantOut: `
-NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE        POLICIES  HTTPROUTES
+NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE        POLICIES  ROUTES
 gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>  0         1
 `,
 		},

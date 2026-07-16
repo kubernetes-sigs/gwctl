@@ -102,6 +102,7 @@ func mustRestMapper(t *testing.T, infos []*resource.Info) meta.RESTMapper {
 				{Name: "gatewayclasses", Namespaced: false, Kind: common.GatewayClassGK.Kind},
 				{Name: "gateways", Namespaced: true, Kind: common.GatewayGK.Kind},
 				{Name: "httproutes", Namespaced: true, Kind: common.HTTPRouteGK.Kind},
+				{Name: "grpcroutes", Namespaced: true, Kind: common.GRPCRouteGK.Kind},
 				{Name: "referencegrants", Namespaced: true, Kind: common.ReferenceGrantGK.Kind},
 			},
 		},
