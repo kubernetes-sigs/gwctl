@@ -139,6 +139,17 @@ var (
 			}
 			result := []common.GKNN{}
 			for _, gatewayRef := range grpcRoute.Spec.ParentRefs {
+				// ParentRefs may target other kinds (for example a Service in
+				// mesh deployments); only emit edges for refs that actually
+				// point at a Gateway. Both Group and Kind default to the
+				// Gateway values when unset.
+				if gatewayRef.Group != nil && string(*gatewayRef.Group) != common.GatewayGK.Group {
+					continue
+				}
+				if gatewayRef.Kind != nil && string(*gatewayRef.Kind) != common.GatewayGK.Kind {
+					continue
+				}
+
 				namespace := grpcRoute.GetNamespace()
 				if namespace == "" {
 					namespace = metav1.NamespaceDefault
