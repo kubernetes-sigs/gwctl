@@ -91,6 +91,8 @@ type TablePrinter struct {
 	table               *Table
 	unknownTablePrinter printers.ResourcePrinter
 	curType             string
+	watchHeaderPrinted  bool
+	watchColumnWidths   []int
 }
 
 func (p *TablePrinter) PrintNode(node *topology.Node, w io.Writer) error {
@@ -99,6 +101,25 @@ func (p *TablePrinter) PrintNode(node *topology.Node, w io.Writer) error {
 
 func (p *TablePrinter) Flush(w io.Writer) error {
 	return p.checkTypeChange("", w)
+}
+
+func (p *TablePrinter) FlushWatch(w io.Writer) error {
+	if p.table == nil {
+		return nil
+	}
+	defer func() { p.table.Rows = nil }()
+
+	if !p.watchHeaderPrinted {
+		if err := p.table.Write(w, 0); err != nil {
+			return err
+		}
+		p.watchHeaderPrinted = true
+		p.watchColumnWidths = p.table.columnWidths()
+		return nil
+	}
+
+	p.watchColumnWidths = mergeColumnWidths(p.watchColumnWidths, p.table.columnWidths())
+	return p.table.writeRows(w, 0, p.watchColumnWidths)
 }
 
 func (p *TablePrinter) printUnknown(node *topology.Node, w io.Writer) error {
