@@ -53,6 +53,13 @@ type TestFactory struct {
 }
 
 func NewTestFactory(t *testing.T, yamls ...string) *TestFactory {
+	return NewTestFactoryWithoutResources(t, nil, yamls...)
+}
+
+// NewTestFactoryWithoutResources builds a TestFactory whose fake server does
+// not recognize the named resources (e.g. "grpcroutes"), imitating a cluster
+// where those CRDs are not installed.
+func NewTestFactoryWithoutResources(t *testing.T, excludedResourceNames []string, yamls ...string) *TestFactory {
 	yaml := strings.Join(yamls, "\n---\n")
 
 	infos, err := resource.NewLocalBuilder().
@@ -66,7 +73,7 @@ func NewTestFactory(t *testing.T, yamls ...string) *TestFactory {
 		t.Fatal(err)
 	}
 
-	restMapper := mustRestMapper(t, infos)
+	restMapper := mustRestMapper(t, infos, excludedResourceNames)
 
 	f := &TestFactory{
 		unstructuredClient: mustFakeRestClient(t, infos, restMapper),
@@ -93,8 +100,9 @@ func (f *TestFactory) KubeConfigNamespace() (string, bool, error) {
 	return f.namespace, false, nil
 }
 
-// mustRestMapper maintains a set of all resources recognized by the fake server.
-func mustRestMapper(t *testing.T, infos []*resource.Info) meta.RESTMapper {
+// mustRestMapper maintains a set of all resources recognized by the fake
+// server, minus any resources named in excludedResourceNames.
+func mustRestMapper(t *testing.T, infos []*resource.Info, excludedResourceNames []string) meta.RESTMapper {
 	resourceList := []*metav1.APIResourceList{
 		{
 			GroupVersion: gatewayv1.GroupVersion.String(),
@@ -167,6 +175,12 @@ func mustRestMapper(t *testing.T, infos []*resource.Info) meta.RESTMapper {
 				APIResources: apiResources,
 			})
 		}
+	}
+
+	for _, list := range resourceList {
+		list.APIResources = slices.DeleteFunc(list.APIResources, func(apiResource metav1.APIResource) bool {
+			return slices.Contains(excludedResourceNames, apiResource.Name)
+		})
 	}
 
 	fakeDiscoveryClient := &fakediscovery.FakeDiscovery{

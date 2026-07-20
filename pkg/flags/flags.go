@@ -65,13 +65,10 @@ func (f *ForFlag) ToOption() (common.GKNN, error) {
 		case "httproute", "httproutes":
 			objRef.Group = gatewayv1.GroupVersion.Group
 			objRef.Kind = "HTTPRoute"
-		case "grpcroute", "grpcroutes":
-			objRef.Group = gatewayv1.GroupVersion.Group
-			objRef.Kind = "GRPCRoute"
 		case "service", "services":
 			objRef.Kind = "Service"
 		default:
-			fmt.Fprintf(os.Stderr, "invalid type provided in --for flag; type must be one of [gatewayclass, gateway, httproute, grpcroute, service]\n")
+			fmt.Fprintf(os.Stderr, "invalid type provided in --for flag; type must be one of [gatewayclass, gateway, httproute, service]\n")
 			os.Exit(1)
 		}
 	}
