@@ -124,6 +124,81 @@ test       httproute-2  example.com,example2.com + 1 more  2            Unknown 
 `,
 		},
 		{
+			name:      "get grpcroutes -n test",
+			inputArgs: []string{"grpcroutes"},
+			namespace: "test",
+			wantOut: `
+NAME         HOSTNAMES      PARENT REFS  ACCEPTED  RESOLVED  AGE
+grpcroute-1  grpc.demo.com  1            Unknown   Unknown   <unknown>
+`,
+		},
+		{
+			name:      "get grpcroutes -A",
+			inputArgs: []string{"grpcroutes", "-A"},
+			namespace: "", // All namespaces
+			wantOut: `
+NAMESPACE  NAME         HOSTNAMES      PARENT REFS  ACCEPTED  RESOLVED  AGE
+test       grpcroute-1  grpc.demo.com  1            Unknown   Unknown   <unknown>
+`,
+		},
+		{
+			name:      "get grpcroutes -o wide -n test",
+			inputArgs: []string{"grpcroutes", "-o", "wide"},
+			namespace: "test",
+			wantOut: `
+NAME         HOSTNAMES      PARENT REFS  ACCEPTED  RESOLVED  AGE        POLICIES
+grpcroute-1  grpc.demo.com  1            Unknown   Unknown   <unknown>  0
+`,
+		},
+		{
+			name:      "describe grpcroutes -n test",
+			inputArgs: []string{"grpcroutes"},
+			namespace: "test",
+			describe:  true,
+			wantOut: `
+Name: grpcroute-1
+Namespace: test
+Label: null
+Annotations: null
+APIVersion: gateway.networking.k8s.io/v1
+Kind: GRPCRoute
+Metadata: {}
+Spec:
+  hostnames:
+  - grpc.demo.com
+  parentRefs:
+  - kind: Gateway
+    name: gateway-1
+  rules:
+  - backendRefs:
+    - name: svc-2
+      port: 9000
+    matches:
+    - method:
+        service: com.example.EchoService
+Status:
+  parents: null
+DirectlyAttachedPolicies: <none>
+InheritedPolicies: <none>
+EffectivePolicies:
+  Gateway.gateway.networking.k8s.io/test/gateway-1: {}
+Events: <none>
+`,
+		},
+		{
+			name:      "get httproutes,grpcroutes -n test",
+			inputArgs: []string{"httproutes,grpcroutes"},
+			namespace: "test",
+			wantOut: `
+NAME         HOSTNAMES      PARENT REFS  ACCEPTED  RESOLVED  AGE
+grpcroute-1  grpc.demo.com  1            Unknown   Unknown   <unknown>
+
+NAME         HOSTNAMES                          PARENT REFS  ACCEPTED  RESOLVED  AGE
+httproute-1  demo.com                           1            Unknown   Unknown   <unknown>
+httproute-2  example.com,example2.com + 1 more  2            Unknown   Unknown   <unknown>
+`,
+		},
+		{
 			name:      "get services",
 			inputArgs: []string{"services"},
 			namespace: "default",
@@ -185,11 +260,13 @@ Status: {}
 AttachedRoutes:
   Kind       Name
   ----       ----
+  GRPCRoute  test/grpcroute-1
   HTTPRoute  test/httproute-1
   HTTPRoute  test/httproute-2
 Backends:
   Kind     Name
   ----     ----
+  Service  test/svc-2
   Service  test/svc-1
   Service  test/svc-2
 DirectlyAttachedPolicies: <none>
@@ -251,11 +328,13 @@ Status: {}
 AttachedRoutes:
   Kind       Name
   ----       ----
+  GRPCRoute  test/grpcroute-1
   HTTPRoute  test/httproute-1
   HTTPRoute  test/httproute-2
 Backends:
   Kind     Name
   ----     ----
+  Service  test/svc-2
   Service  test/svc-1
   Service  test/svc-2
 DirectlyAttachedPolicies: <none>
@@ -314,7 +393,7 @@ spec:
 			inputArgs: []string{"gateways", "-o", "wide"},
 			namespace: "default",
 			wantOut: `
-NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE        POLICIES  HTTPROUTES
+NAME       CLASS                           ADDRESSES  PORTS  PROGRAMMED  AGE        POLICIES  ROUTES
 gateway-3  foo-com-external-gateway-class             80     Unknown     <unknown>  0         1
 `,
 		},

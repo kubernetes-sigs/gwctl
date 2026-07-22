@@ -43,14 +43,14 @@ func NewExtension(fetcher referenceGrantFetcher) *Extension {
 	return &Extension{fetcher: fetcher}
 }
 
-// Extension calculates the effective policies for all Gateways, HTTPRoutes, and
+// Extension calculates the effective policies for all Gateways, Routes, and
 // Backends in the Graph.
 func (a *Extension) Execute(graph *topology.Graph) error {
 	graph.RemoveMetadata(extensionName)
 	if err := a.discoverReferenceGrantsForBackends(graph); err != nil {
 		return err
 	}
-	return a.validateHTTPRoutes(graph)
+	return a.validateRoutes(graph)
 }
 
 func (a *Extension) discoverReferenceGrantsForBackends(graph *topology.Graph) error {
@@ -84,43 +84,45 @@ func (a *Extension) discoverReferenceGrantsForBackends(graph *topology.Graph) er
 	return nil
 }
 
-func (a *Extension) validateHTTPRoutes(graph *topology.Graph) error {
-	for _, httpRouteNode := range graph.Nodes[common.HTTPRouteGK] {
-		if httpRouteNode.Depth > graph.MaxDepth {
-			klog.V(3).InfoS("Not validating HTTPRoute since it's depth is greater than the max depth",
-				"extension", extensionName, "httpRouteNode.Depth", httpRouteNode.Depth, "MaxDepth", graph.MaxDepth,
-			)
-			continue
-		}
+func (a *Extension) validateRoutes(graph *topology.Graph) error {
+	for _, routeGK := range common.RouteGKs {
+		for _, routeNode := range graph.Nodes[routeGK] {
+			if routeNode.Depth > graph.MaxDepth {
+				klog.V(3).InfoS("Not validating Route since it's depth is greater than the max depth",
+					"extension", extensionName, "routeNode.Depth", routeNode.Depth, "MaxDepth", graph.MaxDepth,
+				)
+				continue
+			}
 
-		for backendGKNN, backendNode := range topologygw.HTTPRouteNode(httpRouteNode).Backends() {
-			// Ensure that if this is a cross namespace reference, then it is accepted
-			// through some ReferenceGrant.
-			if httpRouteNode.GKNN().Namespace != backendGKNN.Namespace {
-				backendNodeMetadata, err := Access(backendNode)
-				if err != nil {
-					return err
-				}
-
-				var referenceAccepted bool
-				if backendNodeMetadata != nil {
-					for _, referenceGrant := range backendNodeMetadata.ReferenceGrants {
-						if ReferenceGrantAccepts(referenceGrant, httpRouteNode.GKNN()) {
-							referenceAccepted = true
-							break
-						}
-					}
-				}
-				if !referenceAccepted {
-					err := common.ReferenceNotPermittedError{ReferenceFromTo: common.ReferenceFromTo{
-						ReferringObject: httpRouteNode.GKNN(),
-						ReferredObject:  backendGKNN,
-					}}
-					if err := a.putReferenceGrantErrorInNode(httpRouteNode, err); err != nil {
+			for backendGKNN, backendNode := range topologygw.RouteNode(routeNode).Backends() {
+				// Ensure that if this is a cross namespace reference, then it is accepted
+				// through some ReferenceGrant.
+				if routeNode.GKNN().Namespace != backendGKNN.Namespace {
+					backendNodeMetadata, err := Access(backendNode)
+					if err != nil {
 						return err
 					}
-					klog.V(1).InfoS("Reference not permitted", "from", httpRouteNode.GKNN(), "to", backendGKNN)
-					continue
+
+					var referenceAccepted bool
+					if backendNodeMetadata != nil {
+						for _, referenceGrant := range backendNodeMetadata.ReferenceGrants {
+							if ReferenceGrantAccepts(referenceGrant, routeNode.GKNN()) {
+								referenceAccepted = true
+								break
+							}
+						}
+					}
+					if !referenceAccepted {
+						err := common.ReferenceNotPermittedError{ReferenceFromTo: common.ReferenceFromTo{
+							ReferringObject: routeNode.GKNN(),
+							ReferredObject:  backendGKNN,
+						}}
+						if err := a.putReferenceGrantErrorInNode(routeNode, err); err != nil {
+							return err
+						}
+						klog.V(1).InfoS("Reference not permitted", "from", routeNode.GKNN(), "to", backendGKNN)
+						continue
+					}
 				}
 			}
 		}
