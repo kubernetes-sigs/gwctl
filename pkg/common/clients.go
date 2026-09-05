@@ -18,10 +18,13 @@ package common //nolint:revive
 
 import (
 	"fmt"
+	"strings"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 )
 
 type GroupKindFetcher interface {
@@ -67,6 +70,13 @@ func (d defaultGroupKindFetcher) Fetch(gk schema.GroupKind) ([]*unstructured.Uns
 		Do().
 		Infos()
 	if err != nil {
+		// A resource type that the server does not know (e.g. the GRPCRoute
+		// CRD not being installed) simply means there are no such resources,
+		// so it should not fail fetches done for graph expansion.
+		if isResourceTypeNotFoundError(err) {
+			klog.V(1).InfoS("Skipping fetch since the server does not recognize the resource type", "groupKind", gk, "err", err)
+			return d.additionalResourcesByGK[gk], nil
+		}
 		return nil, err
 	}
 
@@ -83,4 +93,11 @@ func (d defaultGroupKindFetcher) Fetch(gk schema.GroupKind) ([]*unstructured.Uns
 	result = append(result, d.additionalResourcesByGK[gk]...)
 
 	return result, nil
+}
+
+func isResourceTypeNotFoundError(err error) bool {
+	// The resource builder loses the type of the underlying
+	// NoResourceMatchError in some paths, so also match on the message it
+	// produces for unknown resource types.
+	return meta.IsNoMatchError(err) || strings.Contains(err.Error(), "doesn't have a resource type")
 }
