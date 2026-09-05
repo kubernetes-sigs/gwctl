@@ -22,6 +22,7 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"unicode/utf8"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,6 +120,63 @@ func (t *Table) Write(w io.Writer, indent int) error {
 		}
 	}
 	return tw.Flush()
+}
+
+func (t *Table) columnWidths() []int {
+	widths := make([]int, len(t.ColumnNames))
+	for i, columnName := range t.ColumnNames {
+		widths[i] = utf8.RuneCountInString(columnName)
+	}
+
+	for _, row := range t.Rows {
+		for i, value := range row {
+			if i >= len(widths) {
+				widths = append(widths, 0)
+			}
+			widths[i] = max(widths[i], utf8.RuneCountInString(value))
+		}
+	}
+	return widths
+}
+
+func mergeColumnWidths(current, next []int) []int {
+	widths := append([]int{}, current...)
+	if len(next) > len(widths) {
+		widths = append(widths, make([]int, len(next)-len(widths))...)
+	}
+	for i, width := range next {
+		widths[i] = max(widths[i], width)
+	}
+	return widths
+}
+
+// writeRows writes data rows using column widths established by an earlier
+// table write. Watch output is written incrementally, so the standard library
+// tabwriter cannot retain those widths after it is flushed.
+func (t *Table) writeRows(w io.Writer, indent int, columnWidths []int) error {
+	for _, row := range t.Rows {
+		row = t.indentRow(row, indent)
+
+		var line strings.Builder
+		for i, value := range row {
+			line.WriteString(value)
+			if i == len(row)-1 {
+				continue
+			}
+
+			width := utf8.RuneCountInString(value)
+			if i < len(columnWidths) {
+				width = max(width, columnWidths[i])
+			}
+			line.WriteString(strings.Repeat(" ", width-utf8.RuneCountInString(value)+2))
+		}
+		line.WriteByte('\n')
+
+		if _, err := io.WriteString(w, line.String()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // indentRow will add 'indent' spaces to the beginning of the row.
