@@ -123,16 +123,20 @@ func (t *Table) Write(w io.Writer, indent int) error {
 }
 
 func (t *Table) columnWidths() []int {
-	widths := make([]int, len(t.ColumnNames))
+	// A row may carry more values than there are column names, so size the
+	// result from the widest of the two before filling it in.
+	columns := len(t.ColumnNames)
+	for _, row := range t.Rows {
+		columns = max(columns, len(row))
+	}
+
+	widths := make([]int, columns)
 	for i, columnName := range t.ColumnNames {
 		widths[i] = utf8.RuneCountInString(columnName)
 	}
 
 	for _, row := range t.Rows {
 		for i, value := range row {
-			if i >= len(widths) {
-				widths = append(widths, 0)
-			}
 			widths[i] = max(widths[i], utf8.RuneCountInString(value))
 		}
 	}

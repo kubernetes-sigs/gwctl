@@ -316,12 +316,7 @@ func (o *getOptions) watchResources(args []string) error {
 	if err != nil {
 		return err
 	}
-	for _, node := range topology.SortedNodes(nodes) {
-		if err := p.PrintNode(node, o.Out); err != nil {
-			return err
-		}
-	}
-	if err := p.FlushWatch(o.Out); err != nil {
+	if err = o.printWatchNodes(p, topology.SortedNodes(nodes)); err != nil {
 		return err
 	}
 
@@ -364,12 +359,7 @@ func (o *getOptions) watchResources(args []string) error {
 				if err != nil {
 					return err
 				}
-				for _, node := range nodes {
-					if err := p.PrintNode(node, o.Out); err != nil {
-						return err
-					}
-				}
-				if err := p.FlushWatch(o.Out); err != nil {
+				if err := o.printWatchNodes(p, nodes); err != nil {
 					return err
 				}
 			case watch.Error:
@@ -377,6 +367,17 @@ func (o *getOptions) watchResources(args []string) error {
 			}
 		}
 	}
+}
+
+// printWatchNodes prints nodes as a single batch of watch output, so that the
+// rows are flushed together and are visible as soon as they are written.
+func (o *getOptions) printWatchNodes(p *printer.TablePrinter, nodes []*topology.Node) error {
+	for _, node := range nodes {
+		if err := p.PrintNode(node, o.Out); err != nil {
+			return err
+		}
+	}
+	return p.FlushWatch(o.Out)
 }
 
 // buildExtendedGraph builds a topology graph from sources using all gateway
