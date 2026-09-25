@@ -22,10 +22,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"sigs.k8s.io/yaml"
 
 	cmdget "sigs.k8s.io/gwctl/cmd/get"
 	"sigs.k8s.io/gwctl/pkg/common"
@@ -38,9 +38,9 @@ func TestGetWatch(t *testing.T) {
 	factory := NewTestFactory(t, testdataSample1)
 	factory.namespace = "default"
 	factory.setWatchEvents(t,
-		watch.Event{Type: watch.Added, Object: watchGateway("gateway-added")},
-		watch.Event{Type: watch.Modified, Object: watchGateway("gateway-modified")},
-		watch.Event{Type: watch.Deleted, Object: watchGateway("gateway-deleted")},
+		watch.Event{Type: watch.Added, Object: watchGateway("gateway-added", "uid-for-added-gateway", "201")},
+		watch.Event{Type: watch.Modified, Object: watchGateway("gateway-modified", "uid-for-modified-gateway", "202")},
+		watch.Event{Type: watch.Deleted, Object: watchGateway("gateway-deleted", "uid-for-deleted-gateway", "203")},
 	)
 
 	iostreams, _, out, errOut := genericiooptions.NewTestIOStreams()
@@ -64,75 +64,65 @@ func TestGetWatch(t *testing.T) {
 	}
 }
 
+// TestGetWatchNamedResource covers a watch on a single named resource. Such a
+// watch starts from resourceVersion 0, so the server replays the object as a
+// synthetic ADDED event. The replay must not be printed a second time, while
+// the update that follows it must be.
 func TestGetWatchNamedResource(t *testing.T) {
-	factory := NewTestFactory(t, testdataSample1)
-	factory.namespace = "default"
-	factory.setWatchEvents(t,
-		watch.Event{Type: watch.Added, Object: watchGateway("gateway-3")},
-		watch.Event{Type: watch.Modified, Object: watchGateway("gateway-modified")},
+	fetched := watchGateway("gateway-1", "uid-for-watch-gateway", "100")
+	updated := watchGateway("gateway-1", "uid-for-watch-gateway", "101")
+
+	got := runWatch(t, mustMarshalYAML(t, fetched),
+		[]string{"gateways", "gateway-1", "--watch"},
+		// The replay carries the object version that was already printed.
+		watch.Event{Type: watch.Added, Object: fetched.DeepCopy()},
+		watch.Event{Type: watch.Modified, Object: updated},
 	)
 
-	iostreams, _, out, _ := genericiooptions.NewTestIOStreams()
-	cmd := cmdget.NewCmd(factory, iostreams, false)
-	cmd.SetArgs([]string{"gateways", "gateway-3", "--watch"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-
-	got := out.String()
-	if count := strings.Count(got, "gateway-3"); count != 1 {
-		t.Fatalf("gateway-3 row count = %d, want 1\noutput:\n%s", count, got)
-	}
-	if !strings.Contains(got, "gateway-modified") {
-		t.Fatalf("output does not contain the modified resource:\n%s", got)
+	// Once for the initial output and once for the MODIFIED event, but not for
+	// the replayed ADDED event.
+	if count := strings.Count(got, "gateway-1"); count != 2 {
+		t.Fatalf("gateway-1 row count = %d, want 2\noutput:\n%s", count, got)
 	}
 }
 
-// TestGetWatchNamedResourceFirstEventNotAdded ensures the synthetic-ADDED
-// suppression on a named-resource watch is disarmed by the first event of any
-// type, not only by an ADDED event. Otherwise a genuine ADDED arriving after
-// a first MODIFIED/DELETED would be silently dropped.
-func TestGetWatchNamedResourceFirstEventNotAdded(t *testing.T) {
-	factory := NewTestFactory(t, testdataSample1)
-	factory.namespace = "default"
-	factory.setWatchEvents(t,
-		watch.Event{Type: watch.Modified, Object: watchGateway("gateway-modified")},
-		watch.Event{Type: watch.Added, Object: watchGateway("gateway-added")},
+// TestGetWatchNamedResourceRecreated covers a named resource that is deleted
+// after the initial fetch but before the watch is established. The server
+// replays nothing, so the next event is the genuine ADDED for the re-created
+// object, which carries a different uid and resourceVersion and must be
+// printed.
+func TestGetWatchNamedResourceRecreated(t *testing.T) {
+	fetched := watchGateway("gateway-1", "uid-for-watch-gateway", "100")
+	recreated := watchGateway("gateway-1", "uid-for-recreated-gateway", "205")
+
+	got := runWatch(t, mustMarshalYAML(t, fetched),
+		[]string{"gateways", "gateway-1", "--watch"},
+		watch.Event{Type: watch.Added, Object: recreated},
 	)
 
-	iostreams, _, out, _ := genericiooptions.NewTestIOStreams()
-	cmd := cmdget.NewCmd(factory, iostreams, false)
-	cmd.SetArgs([]string{"gateways", "gateway-3", "--watch"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-
-	got := out.String()
-	for _, name := range []string{"gateway-modified", "gateway-added"} {
-		if !strings.Contains(got, name) {
-			t.Fatalf("output does not contain %q:\n%s", name, got)
-		}
+	if count := strings.Count(got, "gateway-1"); count != 2 {
+		t.Fatalf("gateway-1 row count = %d, want 2 (initial output and the re-created object)\noutput:\n%s",
+			count, got)
 	}
 }
 
-func TestGetWatchNamedResourceInitialEventsEndBookmark(t *testing.T) {
-	factory := NewTestFactory(t, testdataSample1)
-	factory.namespace = "default"
-	bookmark := watchGateway("gateway-3")
-	bookmark.SetAnnotations(map[string]string{metav1.InitialEventsAnnotationKey: "true"})
-	factory.setWatchEvents(t,
+// TestGetWatchIgnoresBookmarks checks that bookmarks, which carry only a
+// resourceVersion, print nothing and do not disturb the events around them.
+func TestGetWatchIgnoresBookmarks(t *testing.T) {
+	fetched := watchGateway("gateway-1", "uid-for-watch-gateway", "100")
+	bookmark := watchGateway("gateway-1", "", "204")
+	added := watchGateway("gateway-added", "uid-for-added-gateway", "206")
+
+	got := runWatch(t, mustMarshalYAML(t, fetched),
+		[]string{"gateways", "gateway-1", "--watch"},
 		watch.Event{Type: watch.Bookmark, Object: bookmark},
-		watch.Event{Type: watch.Added, Object: watchGateway("gateway-added")},
+		watch.Event{Type: watch.Added, Object: added},
 	)
 
-	iostreams, _, out, _ := genericiooptions.NewTestIOStreams()
-	cmd := cmdget.NewCmd(factory, iostreams, false)
-	cmd.SetArgs([]string{"gateways", "gateway-3", "--watch"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
+	if count := strings.Count(got, "gateway-1"); count != 1 {
+		t.Fatalf("gateway-1 row count = %d, want 1\noutput:\n%s", count, got)
 	}
-
-	if got := out.String(); !strings.Contains(got, "gateway-added") {
+	if !strings.Contains(got, "gateway-added") {
 		t.Fatalf("output does not contain the added resource:\n%s", got)
 	}
 }
@@ -140,7 +130,7 @@ func TestGetWatchNamedResourceInitialEventsEndBookmark(t *testing.T) {
 func TestGetWatchWide(t *testing.T) {
 	factory := NewTestFactory(t, testdataSample1)
 	factory.namespace = "default"
-	factory.setWatchEvents(t, watch.Event{Type: watch.Added, Object: watchGateway("gateway-added")})
+	factory.setWatchEvents(t, watch.Event{Type: watch.Added, Object: watchGateway("gateway-added", "uid-for-added-gateway", "201")})
 
 	iostreams, _, out, _ := genericiooptions.NewTestIOStreams()
 	cmd := cmdget.NewCmd(factory, iostreams, false)
@@ -158,25 +148,71 @@ func TestGetWatchWide(t *testing.T) {
 	}
 }
 
-func watchGateway(name string) *unstructured.Unstructured {
+// runWatch runs a get command against a server that serves the given YAML and
+// replies to the watch request with the given events before closing the stream.
+// It returns the command's standard output.
+func runWatch(t *testing.T, testdata string, args []string, events ...watch.Event) string {
+	t.Helper()
+
+	factory := NewTestFactory(t, testdata)
+	factory.namespace = "default"
+	factory.setWatchEvents(t, events...)
+
+	iostreams, _, out, _ := genericiooptions.NewTestIOStreams()
+	cmd := cmdget.NewCmd(factory, iostreams, false)
+	cmd.SetArgs(args)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	return out.String()
+}
+
+// watchGateway builds a Gateway for the watch tests. Both the object a test
+// serves for the initial get and the objects it puts on the watch stream come
+// from here, so an event can be given the identity of the fetched object, which
+// is what the API server replays, or a different one, which is what a genuine
+// change looks like, without the two ever drifting apart.
+func watchGateway(name, uid, resourceVersion string) *unstructured.Unstructured {
+	metadata := map[string]any{
+		"name":      name,
+		"namespace": "default",
+	}
+	if uid != "" {
+		metadata["uid"] = uid
+	}
+	if resourceVersion != "" {
+		metadata["resourceVersion"] = resourceVersion
+	}
+
 	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "gateway.networking.k8s.io/v1",
 		"kind":       "Gateway",
-		"metadata": map[string]any{
-			"name":      name,
-			"namespace": "default",
-		},
+		"metadata":   metadata,
 		"spec": map[string]any{
 			"gatewayClassName": "foo-com-external-gateway-class",
 			"listeners": []any{
 				map[string]any{
-					"name":     "http",
-					"port":     80,
+					"name": "http",
+					// Unstructured content has to hold int64, not int, or
+					// DeepCopy and the JSON round trip reject it.
+					"port":     int64(80),
 					"protocol": "HTTP",
 				},
 			},
 		},
 	}}
+}
+
+// mustMarshalYAML renders an object as YAML, which is the form NewTestFactory
+// builds its fake server from.
+func mustMarshalYAML(t *testing.T, obj *unstructured.Unstructured) string {
+	t.Helper()
+
+	data, err := yaml.Marshal(obj.Object)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 func TestGet(t *testing.T) {

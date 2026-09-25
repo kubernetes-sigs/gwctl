@@ -20,19 +20,18 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/kubectl/pkg/util/interrupt"
 	"k8s.io/utils/clock"
 
 	"sigs.k8s.io/gwctl/pkg/common"
@@ -269,6 +268,22 @@ func (o *getOptions) validateWatch() error {
 }
 
 func (o *getOptions) watchResources(args []string) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// The interrupt handler covers the whole command, not just the watch loop,
+	// so a termination signal is honored while the initial fetch or the watch
+	// establishment is still in flight. It has to act from the signal handling
+	// goroutine: those calls are not context-aware, so canceling ctx cannot
+	// unblock them, and waiting for them to return would leave the command
+	// unresponsive for as long as the API server takes to answer. This is the
+	// same handler, used the same way, as kubectl get --watch.
+	return interrupt.New(nil, cancel).Run(func() error {
+		return o.runWatch(ctx, args)
+	})
+}
+
+func (o *getOptions) runWatch(ctx context.Context, args []string) error {
 	var pm *policymanager.PolicyManager
 	if o.output == printer.OutputFormatWide {
 		pm = policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
@@ -305,7 +320,11 @@ func (o *getOptions) watchResources(args []string) error {
 	if err != nil {
 		return err
 	}
-	skipInitialAdded := !meta.IsListType(obj)
+
+	replayed, err := replayedIdentity(obj)
+	if err != nil {
+		return err
+	}
 
 	p := &printer.TablePrinter{PrinterOptions: printer.PrinterOptions{
 		OutputFormat:  o.output,
@@ -326,9 +345,6 @@ func (o *getOptions) watchResources(args []string) error {
 	}
 	defer watcher.Stop()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -341,19 +357,11 @@ func (o *getOptions) watchResources(args []string) error {
 
 			switch event.Type {
 			case watch.Bookmark:
-				if skipInitialAdded && isInitialEventsEndBookmark(event.Object) {
-					// A named resource can disappear between the initial get and
-					// the watch-list snapshot, which ends without an ADDED event.
-					skipInitialAdded = false
-				}
+				// Bookmarks only carry a resourceVersion, so there is nothing
+				// to print for them.
 			case watch.Added, watch.Modified, watch.Deleted:
-				if skipInitialAdded {
-					// The first event on a named-resource watch is the
-					// synthetic ADDED for the object already printed above.
-					skipInitialAdded = false
-					if event.Type == watch.Added {
-						continue
-					}
+				if isReplayOf(event, replayed) {
+					continue
 				}
 				nodes, err := o.buildWatchNodes([]runtime.Object{event.Object}, pm)
 				if err != nil {
@@ -401,11 +409,22 @@ func (o *getOptions) buildExtendedGraph(sources []*unstructured.Unstructured, pm
 	return graph, nil
 }
 
+// extractInitialObjects returns the objects making up the initial output of a
+// watch, along with the resourceVersion the watch should be started from.
 func extractInitialObjects(obj runtime.Object) ([]runtime.Object, string, error) {
 	if !meta.IsListType(obj) {
+		// Watching a single object from resourceVersion 0 starts the watch at
+		// ~now, which is guaranteed to be inside the server's watch window. The
+		// resourceVersion of the object itself is not: it can predate
+		// everything the watch cache still holds, in which case the server
+		// rejects the watch with "too old resource version". The cost of
+		// starting at ~now is a replayed ADDED event for the current state,
+		// which the caller filters out.
 		return []runtime.Object{obj}, "0", nil
 	}
 
+	// The resourceVersion of a list is ~now, and a watch started from it
+	// replays nothing.
 	resourceVersion, err := meta.NewAccessor().ResourceVersion(obj)
 	if err != nil {
 		return nil, "", err
@@ -417,15 +436,53 @@ func extractInitialObjects(obj runtime.Object) ([]runtime.Object, string, error)
 	return objects, resourceVersion, nil
 }
 
-func isInitialEventsEndBookmark(obj runtime.Object) bool {
-	if obj == nil {
+// objectIdentity identifies one specific version of one specific object.
+type objectIdentity struct {
+	uid             types.UID
+	resourceVersion string
+}
+
+func identityOf(obj runtime.Object) (objectIdentity, error) {
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return objectIdentity{}, err
+	}
+	return objectIdentity{
+		uid:             accessor.GetUID(),
+		resourceVersion: accessor.GetResourceVersion(),
+	}, nil
+}
+
+// replayedIdentity returns the identity of the object the server will replay as
+// a synthetic ADDED event once the watch is established, or nil when there is
+// nothing to replay. Only a watch on a single named resource replays anything,
+// because it has to start from resourceVersion 0; a watch started from the
+// resourceVersion of a list does not.
+func replayedIdentity(obj runtime.Object) (*objectIdentity, error) {
+	if meta.IsListType(obj) {
+		return nil, nil
+	}
+	identity, err := identityOf(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &identity, nil
+}
+
+// isReplayOf reports whether event is the server replaying an object that has
+// already been printed. Matching on identity, rather than assuming the replay
+// is whichever event happens to arrive first, keeps genuine events visible: an
+// object that was modified, or deleted and re-created, carries a different
+// resourceVersion or UID and is always printed.
+func isReplayOf(event watch.Event, identity *objectIdentity) bool {
+	if identity == nil || event.Type != watch.Added {
 		return false
 	}
-	accessor, err := meta.Accessor(obj)
+	eventIdentity, err := identityOf(event.Object)
 	if err != nil {
 		return false
 	}
-	return accessor.GetAnnotations()[metav1.InitialEventsAnnotationKey] == "true"
+	return eventIdentity == *identity
 }
 
 func (o *getOptions) buildWatchNodes(objects []runtime.Object, pm *policymanager.PolicyManager) ([]*topology.Node, error) {
