@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Kubernetes Authors.
+Copyright 2026 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer) error {
-	if err := p.checkTypeChange("HTTPRoute", w); err != nil {
+func (p *TablePrinter) printGRPCRoute(grpcRouteNode *topology.Node, w io.Writer) error {
+	if err := p.checkTypeChange("GRPCRoute", w); err != nil {
 		return err
 	}
 
@@ -49,10 +49,10 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 		}
 	}
 
-	httpRoute := topology.MustAccessObject(httpRouteNode, &gatewayv1.HTTPRoute{})
+	grpcRoute := topology.MustAccessObject(grpcRouteNode, &gatewayv1.GRPCRoute{})
 
 	var hostNames []string
-	for _, hostName := range httpRoute.Spec.Hostnames {
+	for _, hostName := range grpcRoute.Spec.Hostnames {
 		hostNames = append(hostNames, string(hostName))
 	}
 	hostNamesOutput := "None"
@@ -64,19 +64,19 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 		}
 	}
 
-	parentRefsCount := fmt.Sprintf("%d", len(httpRoute.Spec.ParentRefs))
+	parentRefsCount := fmt.Sprintf("%d", len(grpcRoute.Spec.ParentRefs))
 
-	acceptedStatus, resolvedStatus := routeAcceptedAndResolvedStatus(httpRoute.Status.Parents)
+	acceptedStatus, resolvedStatus := routeAcceptedAndResolvedStatus(grpcRoute.Status.Parents)
 
 	age := "<unknown>"
-	creationTimestamp := httpRoute.GetCreationTimestamp()
+	creationTimestamp := grpcRoute.GetCreationTimestamp()
 	if !creationTimestamp.IsZero() {
 		age = duration.HumanDuration(p.Clock.Since(creationTimestamp.Time))
 	}
 
-	row := append(rowPrefixNamespaced(httpRoute, p.AllNamespaces), hostNamesOutput, parentRefsCount, acceptedStatus, resolvedStatus, age)
+	row := append(rowPrefixNamespaced(grpcRoute, p.AllNamespaces), hostNamesOutput, parentRefsCount, acceptedStatus, resolvedStatus, age)
 	if p.OutputFormat == OutputFormatWide {
-		policiesMap, err := directlyattachedpolicy.Access(httpRouteNode)
+		policiesMap, err := directlyattachedpolicy.Access(grpcRouteNode)
 		if err != nil {
 			return err
 		}
@@ -87,15 +87,15 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 	return nil
 }
 
-func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer) error {
+func (p *DescriptionPrinter) printGRPCRoute(grpcRouteNode *topology.Node, w io.Writer) error {
 	if p.printSeparator {
 		fmt.Fprintf(w, "\n\n")
 	}
 	p.printSeparator = true
 
-	httpRoute := topology.MustAccessObject(httpRouteNode, &gatewayv1.HTTPRoute{})
+	grpcRoute := topology.MustAccessObject(grpcRouteNode, &gatewayv1.GRPCRoute{})
 
-	metadata := httpRoute.ObjectMeta.DeepCopy()
+	metadata := grpcRoute.ObjectMeta.DeepCopy()
 	metadata.Labels = nil
 	metadata.Annotations = nil
 	metadata.Name = ""
@@ -103,19 +103,19 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	metadata.ManagedFields = nil
 
 	pairs := []*DescriberKV{
-		{"Name", httpRoute.GetName()},
-		{"Namespace", httpRoute.Namespace},
-		{"Label", httpRoute.Labels},
-		{"Annotations", httpRoute.Annotations},
-		{"APIVersion", httpRoute.APIVersion},
-		{"Kind", httpRoute.Kind},
+		{"Name", grpcRoute.GetName()},
+		{"Namespace", grpcRoute.Namespace},
+		{"Label", grpcRoute.Labels},
+		{"Annotations", grpcRoute.Annotations},
+		{"APIVersion", grpcRoute.APIVersion},
+		{"Kind", grpcRoute.Kind},
 		{"Metadata", metadata},
-		{"Spec", httpRoute.Spec},
-		{"Status", httpRoute.Status},
+		{"Spec", grpcRoute.Spec},
+		{"Status", grpcRoute.Status},
 	}
 
 	// DirectlyAttachedPolicies
-	policiesMap, err := directlyattachedpolicy.Access(httpRouteNode)
+	policiesMap, err := directlyattachedpolicy.Access(grpcRouteNode)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	pairs = append(pairs, &DescriberKV{Key: "DirectlyAttachedPolicies", Value: convertPoliciesToRefsTable(policies, false)})
 
 	// InheritedPolicies
-	effectivePolicies, err := gatewayeffectivepolicy.Access(httpRouteNode)
+	effectivePolicies, err := gatewayeffectivepolicy.Access(grpcRouteNode)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	}
 
 	// Analysis
-	analysisErrors, err := extensionutils.AggregateAnalysisErrors(httpRouteNode)
+	analysisErrors, err := extensionutils.AggregateAnalysisErrors(grpcRouteNode)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	}
 
 	// Events
-	events, err := p.EventFetcher.FetchEventsFor(httpRoute)
+	events, err := p.EventFetcher.FetchEventsFor(grpcRoute)
 	if err != nil {
 		return err
 	}

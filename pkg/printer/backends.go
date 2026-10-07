@@ -61,17 +61,17 @@ func (p *TablePrinter) printBackend(backendNode *topology.Node, w io.Writer) err
 
 	row := append(rowPrefixNamespaced(backend, p.AllNamespaces), backendType, age)
 	if p.OutputFormat == OutputFormatWide {
-		httpRouteNodes := maps.Values(topologygw.BackendNode(backendNode).HTTPRoutes())
-		sortedHTTPRouteNodes := topology.SortedNodes(httpRouteNodes)
-		totalRoutes := len(sortedHTTPRouteNodes)
+		routeNodes := maps.Values(topologygw.BackendNode(backendNode).Routes())
+		sortedRouteNodes := topology.SortedNodes(routeNodes)
+		totalRoutes := len(sortedRouteNodes)
 		var referredByRoutes string
 		if totalRoutes == 0 {
 			referredByRoutes = "None"
 		} else {
 			var routes []string
-			for i, httpRouteNode := range sortedHTTPRouteNodes {
+			for i, routeNode := range sortedRouteNodes {
 				if i < 2 {
-					namespacedName := httpRouteNode.GKNN().NamespacedName().String()
+					namespacedName := routeNode.GKNN().NamespacedName().String()
 					routes = append(routes, namespacedName)
 				} else {
 					break
@@ -117,10 +117,11 @@ func (p *DescriptionPrinter) printBackend(backendNode *topology.Node, w io.Write
 		ColumnNames:  []string{"Kind", "Name"},
 		UseSeparator: true,
 	}
-	for _, httpRouteNode := range topologygw.BackendNode(backendNode).HTTPRoutes() {
+	referencingRouteNodes := maps.Values(topologygw.BackendNode(backendNode).Routes())
+	for _, routeNode := range topology.SortedNodes(referencingRouteNodes) {
 		row := []string{
-			httpRouteNode.GKNN().Kind,                      // Kind
-			httpRouteNode.GKNN().NamespacedName().String(), // Name
+			routeNode.GKNN().Kind,                      // Kind
+			routeNode.GKNN().NamespacedName().String(), // Name
 		}
 		routes.Rows = append(routes.Rows, row)
 	}

@@ -43,7 +43,7 @@ func (p *TablePrinter) printGateway(gatewayNode *topology.Node, w io.Writer) err
 		columnNames := namespacedBaseColumnNames(p.AllNamespaces)
 		columnNames = append(columnNames, "CLASS", "ADDRESSES", "PORTS", "PROGRAMMED", "AGE")
 		if p.OutputFormat == OutputFormatWide {
-			columnNames = append(columnNames, "POLICIES", "HTTPROUTES")
+			columnNames = append(columnNames, "POLICIES", "ROUTES")
 		}
 		p.table = &Table{
 			ColumnNames:  columnNames,
@@ -90,9 +90,9 @@ func (p *TablePrinter) printGateway(gatewayNode *topology.Node, w io.Writer) err
 		}
 		policiesCount := fmt.Sprintf("%d", len(policiesMap))
 
-		httpRoutesCount := fmt.Sprintf("%d", len(topologygw.GatewayNode(gatewayNode).HTTPRoutes()))
+		routesCount := fmt.Sprintf("%d", len(topologygw.GatewayNode(gatewayNode).Routes()))
 
-		row = append(row, policiesCount, httpRoutesCount)
+		row = append(row, policiesCount, routesCount)
 	}
 	p.table.Rows = append(p.table.Rows, row)
 
@@ -127,8 +127,8 @@ func (p *DescriptionPrinter) printGateway(gatewayNode *topology.Node, w io.Write
 	}
 
 	const (
-		maxHTTPRoutes = 10
-		maxBackends   = 10
+		maxRoutes   = 10
+		maxBackends = 10
 	)
 
 	// AttachedRoutes
@@ -141,21 +141,21 @@ func (p *DescriptionPrinter) printGateway(gatewayNode *topology.Node, w io.Write
 		ColumnNames:  []string{"Kind", "Name"},
 		UseSeparator: true,
 	}
-	httpRouteCount, backendsCount := 0, 0
-	httpRouteNodes := maps.Values(topologygw.GatewayNode(gatewayNode).HTTPRoutes())
-	for _, httpRouteNode := range topology.SortedNodes(httpRouteNodes) {
-		httpRouteCount++
-		if httpRouteCount > maxHTTPRoutes {
+	routeCount, backendsCount := 0, 0
+	routeNodes := maps.Values(topologygw.GatewayNode(gatewayNode).Routes())
+	for _, routeNode := range topology.SortedNodes(routeNodes) {
+		routeCount++
+		if routeCount > maxRoutes {
 			attachedRoutes.Rows = append(attachedRoutes.Rows, []string{"(Truncated)"})
 			break
 		}
 		row := []string{
-			httpRouteNode.GKNN().Kind,                      // Kind
-			httpRouteNode.GKNN().NamespacedName().String(), // Name
+			routeNode.GKNN().Kind,                      // Kind
+			routeNode.GKNN().NamespacedName().String(), // Name
 		}
 		attachedRoutes.Rows = append(attachedRoutes.Rows, row)
 
-		backendNodes := maps.Values(topologygw.HTTPRouteNode(httpRouteNode).Backends())
+		backendNodes := maps.Values(topologygw.RouteNode(routeNode).Backends())
 		for _, backendNode := range topology.SortedNodes(backendNodes) {
 			backendsCount++
 			if backendsCount > maxBackends {

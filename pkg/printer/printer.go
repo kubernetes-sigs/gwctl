@@ -136,6 +136,7 @@ type typedPrinter interface {
 	printGatewayClass(*topology.Node, io.Writer) error
 	printGateway(*topology.Node, io.Writer) error
 	printHTTPRoute(*topology.Node, io.Writer) error
+	printGRPCRoute(*topology.Node, io.Writer) error
 	printNamespace(*topology.Node, io.Writer) error
 	printPolicy(*topology.Node, io.Writer) error
 	printPolicyCRD(*topology.Node, io.Writer) error
@@ -157,6 +158,8 @@ func parseAndPrint(node *topology.Node, w io.Writer, p typedPrinter) error {
 		return p.printGatewayClass(node, w)
 	case common.HTTPRouteGK:
 		return p.printHTTPRoute(node, w)
+	case common.GRPCRouteGK:
+		return p.printGRPCRoute(node, w)
 	case common.NamespaceGK:
 		return p.printNamespace(node, w)
 	case common.ServiceGK:

@@ -164,6 +164,72 @@ func testData(t *testing.T) map[schema.GroupKind][]*topology.Node {
 		},
 	)
 
+	grpcRoute1 := mustNewNode(t,
+		&gatewayv1.GRPCRoute{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: gatewayv1.GroupVersion.String(),
+				Kind:       "GRPCRoute",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "grpc-route-1",
+				Namespace: "ns-1",
+			},
+			Spec: gatewayv1.GRPCRouteSpec{
+				Hostnames: []gatewayv1.Hostname{"foo.com", "bar.com", "example.com"},
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Kind:      ptr.To(gatewayv1.Kind("Gateway")),
+							Group:     ptr.To(gatewayv1.Group("gateway.networking.k8s.io")),
+							Namespace: ptr.To(gatewayv1.Namespace("ns-1")),
+							Name:      "gateway-1",
+						},
+					},
+				},
+				Rules: []gatewayv1.GRPCRouteRule{
+					{
+						BackendRefs: []gatewayv1.GRPCBackendRef{
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Port:      ptr.To(gatewayv1.PortNumber(8080)),
+										Name:      gatewayv1.ObjectName("service-1"),
+										Kind:      ptr.To(gatewayv1.Kind("Service")),
+										Namespace: ptr.To(gatewayv1.Namespace("ns-1")),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Status: gatewayv1.GRPCRouteStatus{
+				RouteStatus: gatewayv1.RouteStatus{
+					Parents: []gatewayv1.RouteParentStatus{
+						{
+							ParentRef: gatewayv1.ParentReference{
+								Kind:      ptr.To(gatewayv1.Kind("Gateway")),
+								Group:     ptr.To(gatewayv1.Group("gateway.networking.k8s.io")),
+								Namespace: ptr.To(gatewayv1.Namespace("ns-1")),
+								Name:      "gateway-1",
+							},
+							Conditions: []metav1.Condition{
+								{
+									Type:   "Accepted",
+									Status: "True",
+								},
+								{
+									Type:   "ResolvedRefs",
+									Status: "True",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
 	service1 := mustNewNode(t, &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -180,6 +246,7 @@ func testData(t *testing.T) map[schema.GroupKind][]*topology.Node {
 	graph.AddNode(gatewayClass1)
 	graph.AddNode(gateway1)
 	graph.AddNode(httpRoute1)
+	graph.AddNode(grpcRoute1)
 	graph.AddNode(service1)
 
 	result := map[schema.GroupKind][]*topology.Node{}
