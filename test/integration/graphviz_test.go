@@ -15,14 +15,20 @@ import (
 //go:embed testdata/graphviz/graph-single-namespace.yaml
 var testdataGraphSingleNamespace string
 
-//go:embed testdata/graphviz/graph-single-namespace.gv
+//go:embed testdata/graphviz/graph-single-namespace.dot
 var testdataGraphSingleNamespaceDot string
 
 //go:embed testdata/graphviz/graph-multi-namespace.yaml
 var testdataGraphMultiNamespace string
 
-//go:embed testdata/graphviz/graph-multi-namespace.gv
+//go:embed testdata/graphviz/graph-multi-namespace.dot
 var testdataGraphMultiNamespaceDot string
+
+//go:embed testdata/sample1.yaml
+var testdataGraphSample string
+
+//go:embed testdata/graphviz/sample1.dot
+var testdataGraphSampleDot string
 
 func TestGraphviz(t *testing.T) {
 	testCases := []struct {
@@ -48,6 +54,14 @@ func TestGraphviz(t *testing.T) {
 			describe:  false,
 			yaml:      testdataGraphMultiNamespace,
 			wantOut:   testdataGraphMultiNamespaceDot,
+		},
+		{
+			name:      "get gatewayclass -o graph -A",
+			inputArgs: []string{"gatewayclass", "-o", "graph"},
+			namespace: "", // All namespaces
+			describe:  false,
+			yaml:      testdataGraphSample,
+			wantOut:   testdataGraphSampleDot,
 		},
 	}
 
