@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/liggitt/tabwriter"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/utils/clock"
 
@@ -91,6 +92,7 @@ type TablePrinter struct {
 	table               *Table
 	unknownTablePrinter printers.ResourcePrinter
 	curType             string
+	watchWriter         *tabwriter.Writer
 }
 
 func (p *TablePrinter) PrintNode(node *topology.Node, w io.Writer) error {
@@ -99,6 +101,30 @@ func (p *TablePrinter) PrintNode(node *topology.Node, w io.Writer) error {
 
 func (p *TablePrinter) Flush(w io.Writer) error {
 	return p.checkTypeChange("", w)
+}
+
+// FlushWatch writes the rows collected since the last call, preceded by the
+// header on the first call. The tabwriter is created once and kept for the
+// whole watch session so that rows printed for later events stay aligned with
+// the header, which a per-call writer could not do because flushing resets
+// column widths. w must be the same writer on every call.
+func (p *TablePrinter) FlushWatch(w io.Writer) error {
+	if p.table == nil {
+		return nil
+	}
+	defer func() { p.table.Rows = nil }()
+
+	if p.watchWriter == nil {
+		p.watchWriter = newTableWriter(w)
+		if err := p.table.writeHeader(p.watchWriter, 0); err != nil {
+			return err
+		}
+	}
+
+	if err := p.table.writeRows(p.watchWriter, 0); err != nil {
+		return err
+	}
+	return p.watchWriter.Flush()
 }
 
 func (p *TablePrinter) printUnknown(node *topology.Node, w io.Writer) error {

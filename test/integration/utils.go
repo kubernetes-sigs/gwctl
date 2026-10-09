@@ -32,11 +32,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/streaming"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery/cached/memory"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest/fake"
+	restclientwatch "k8s.io/client-go/rest/watch"
 	"k8s.io/client-go/restmapper"
 	clientgotesting "k8s.io/client-go/testing"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
@@ -50,6 +53,7 @@ type TestFactory struct {
 	namespace          string
 	unstructuredClient resource.RESTClient
 	restMapper         meta.RESTMapper
+	watchResponse      []byte
 }
 
 func NewTestFactory(t *testing.T, yamls ...string) *TestFactory {
@@ -68,11 +72,25 @@ func NewTestFactory(t *testing.T, yamls ...string) *TestFactory {
 
 	restMapper := mustRestMapper(t, infos)
 
-	f := &TestFactory{
-		unstructuredClient: mustFakeRestClient(t, infos, restMapper),
-		restMapper:         restMapper,
-	}
+	f := &TestFactory{restMapper: restMapper}
+	f.unstructuredClient = f.mustFakeRestClient(t, infos)
 	return f
+}
+
+// setWatchEvents encodes events in the same wire format the API server uses
+// for watch streams, so they are decoded by client-go's real watch decoder.
+func (f *TestFactory) setWatchEvents(t *testing.T, events ...watch.Event) {
+	t.Helper()
+
+	codec := unstructured.NewJSONFallbackEncoder(scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...))
+	buf := &bytes.Buffer{}
+	encoder := restclientwatch.NewEncoder(streaming.NewEncoder(buf, codec), codec)
+	for i := range events {
+		if err := encoder.Encode(&events[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.watchResponse = buf.Bytes()
 }
 
 func (f *TestFactory) NewBuilder() *resource.Builder {
@@ -177,8 +195,8 @@ func mustRestMapper(t *testing.T, infos []*resource.Info) meta.RESTMapper {
 	return restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient)
 }
 
-func mustFakeRestClient(t *testing.T, infos []*resource.Info, restMapper meta.RESTMapper) *fake.RESTClient {
-	resourcesByPath := loadResourcesByPath(t, infos, restMapper)
+func (f *TestFactory) mustFakeRestClient(t *testing.T, infos []*resource.Info) *fake.RESTClient {
+	resourcesByPath := loadResourcesByPath(t, infos, f.restMapper)
 
 	codec := unstructured.NewJSONFallbackEncoder(scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...))
 	roundTripper := func(req *http.Request) (*http.Response, error) {
@@ -191,6 +209,16 @@ func mustFakeRestClient(t *testing.T, infos []*resource.Info, restMapper meta.RE
 		if method != "GET" {
 			t.Fatalf("request url: %+v, and request: %+v", req.URL, req)
 			return nil, nil
+		}
+		if req.URL.Query().Get("watch") == "true" {
+			if f.watchResponse == nil {
+				t.Fatalf("unexpected watch request: %+v", req.URL)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     cmdtesting.DefaultHeader(),
+				Body:       io.NopCloser(bytes.NewReader(f.watchResponse)),
+			}, nil
 		}
 
 		responseBody := resourcesByPath[pathAndQuery]

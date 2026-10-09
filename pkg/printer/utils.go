@@ -21,8 +21,8 @@ import (
 	"io"
 	"os"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/liggitt/tabwriter"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,7 +47,20 @@ type DescriberKV struct {
 const (
 	// Default indentation for Tables that are printed in the Describe view.
 	defaultDescribeTableIndentSpaces = 2
+
+	// Padding added to a cell before computing its width.
+	tableColumnPadding = 2
 )
+
+// newTableWriter returns the tabwriter used for all table output. The
+// RememberWidths flag makes a single writer reuse the column widths it has
+// already written, even across Flush calls. Watch output relies on this to keep
+// events that are printed one at a time aligned with the header of the initial
+// list. This is the same reason cli-runtime's printers.GetNewTabWriter uses the
+// flag, but the padding here is gwctl's own.
+func newTableWriter(w io.Writer) *tabwriter.Writer {
+	return tabwriter.NewWriter(w, 0, 0, tableColumnPadding, ' ', tabwriter.RememberWidths)
+}
 
 // Describe writes the key-value paris to the writer. It handles things like
 // properly writing special data types like Tables.
@@ -86,39 +99,51 @@ type Table struct {
 // Write will write a formatted table to the writer. indent controls the
 // number of spaces at the beginning of each row.
 func (t *Table) Write(w io.Writer, indent int) error {
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	tw := newTableWriter(w)
+	if err := t.writeHeader(tw, indent); err != nil {
+		return err
+	}
+	if err := t.writeRows(tw, indent); err != nil {
+		return err
+	}
+	return tw.Flush()
+}
 
-	// Print column names.
+// writeHeader writes the column names and, when enabled, the separator that
+// follows them. The caller owns w and is responsible for flushing it.
+func (t *Table) writeHeader(w io.Writer, indent int) error {
 	if len(t.ColumnNames) > 0 {
 		row := t.indentRow(t.ColumnNames, indent)
-		_, err := tw.Write([]byte(strings.Join(row, "\t") + "\n"))
-		if err != nil {
+		if _, err := io.WriteString(w, strings.Join(row, "\t")+"\n"); err != nil {
 			return err
 		}
 	}
 
-	// Optionally print a separator between header row and data rows.
 	if t.UseSeparator {
 		row := make([]string, len(t.ColumnNames))
 		for i, value := range t.ColumnNames {
 			row[i] = strings.Repeat("-", len(value))
 		}
 		row = t.indentRow(row, indent)
-		_, err := tw.Write([]byte(strings.Join(row, "\t") + "\n"))
-		if err != nil {
+		if _, err := io.WriteString(w, strings.Join(row, "\t")+"\n"); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	// Print data rows.
+// writeRows writes the data rows. The caller owns w and is responsible for
+// flushing it, which is what lets watch output share a single tabwriter, and
+// therefore a single set of column widths, across the initial list and every
+// event printed after it.
+func (t *Table) writeRows(w io.Writer, indent int) error {
 	for _, row := range t.Rows {
 		row = t.indentRow(row, indent)
-		_, err := tw.Write([]byte(strings.Join(row, "\t") + "\n"))
-		if err != nil {
+		if _, err := io.WriteString(w, strings.Join(row, "\t")+"\n"); err != nil {
 			return err
 		}
 	}
-	return tw.Flush()
+	return nil
 }
 
 // indentRow will add 'indent' spaces to the beginning of the row.
