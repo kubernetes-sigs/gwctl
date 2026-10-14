@@ -66,54 +66,7 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 
 	parentRefsCount := fmt.Sprintf("%d", len(httpRoute.Spec.ParentRefs))
 
-	// Calculate accepted status
-	acceptedStatus := "Unknown"
-	acceptedCount := 0
-	totalParents := len(httpRoute.Status.Parents)
-
-	for _, parentStatus := range httpRoute.Status.Parents {
-		for _, condition := range parentStatus.Conditions {
-			if condition.Type == "Accepted" && condition.Status == "True" {
-				acceptedCount++
-				break
-			}
-		}
-	}
-
-	if totalParents > 0 {
-		switch {
-		case acceptedCount == totalParents:
-			acceptedStatus = "True"
-		case acceptedCount > 0:
-			acceptedStatus = "Partial"
-		default:
-			acceptedStatus = "False"
-		}
-	}
-
-	// Calculate resolved status for backend references
-	resolvedStatus := "Unknown"
-	resolvedCount := 0
-
-	for _, parentStatus := range httpRoute.Status.Parents {
-		for _, condition := range parentStatus.Conditions {
-			if condition.Type == "ResolvedRefs" && condition.Status == "True" {
-				resolvedCount++
-				break
-			}
-		}
-	}
-
-	if totalParents > 0 {
-		switch {
-		case acceptedCount == totalParents:
-			acceptedStatus = "True"
-		case acceptedCount > 0:
-			acceptedStatus = "Partial"
-		default:
-			acceptedStatus = "False"
-		}
-	}
+	acceptedStatus, resolvedStatus := routeAcceptedAndResolvedStatus(httpRoute.Status.Parents)
 
 	age := "<unknown>"
 	creationTimestamp := httpRoute.GetCreationTimestamp()
@@ -174,12 +127,12 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	if err != nil {
 		return err
 	}
-	policies = policymanager.ConvertPoliciesMapToSlice(effectivePolicies.HTTPRouteInheritedPolicies)
+	policies = policymanager.ConvertPoliciesMapToSlice(effectivePolicies.RouteInheritedPolicies)
 	pairs = append(pairs, &DescriberKV{Key: "InheritedPolicies", Value: convertPoliciesToRefsTable(policies, true)})
 
 	// EffectivePolicies
-	if len(effectivePolicies.HTTPRouteEffectivePolicies) != 0 {
-		pairs = append(pairs, &DescriberKV{Key: "EffectivePolicies", Value: effectivePolicies.HTTPRouteEffectivePolicies})
+	if len(effectivePolicies.RouteEffectivePolicies) != 0 {
+		pairs = append(pairs, &DescriberKV{Key: "EffectivePolicies", Value: effectivePolicies.RouteEffectivePolicies})
 	}
 
 	// Analysis
