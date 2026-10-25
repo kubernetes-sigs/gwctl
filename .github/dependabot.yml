@@ -13,3 +13,4 @@ updates:
       - go
       - dependencies
       - ok-to-test
+      - ail/0
