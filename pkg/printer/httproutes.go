@@ -21,6 +21,7 @@ import (
 	"io"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"sigs.k8s.io/gwctl/pkg/extension/directlyattachedpolicy"
@@ -33,7 +34,15 @@ import (
 )
 
 func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer) error {
-	if err := p.checkTypeChange("HTTPRoute", w); err != nil {
+	httpRoute := topology.MustAccessObject(httpRouteNode, &gatewayv1.HTTPRoute{})
+	return p.printRoute(httpRouteNode, w, httpRoute.Spec.Hostnames, httpRoute.Spec.CommonRouteSpec, httpRoute.Status.RouteStatus)
+}
+
+// printRoute prints the table row shared by all Route kinds. The row only
+// needs the fields common to every Route, so the kind-specific printers pass
+// those in rather than the typed object.
+func (p *TablePrinter) printRoute(routeNode *topology.Node, w io.Writer, hostnames []gatewayv1.Hostname, spec gatewayv1.CommonRouteSpec, status gatewayv1.RouteStatus) error {
+	if err := p.checkTypeChange(routeNode.GKNN().Kind, w); err != nil {
 		return err
 	}
 
@@ -49,10 +58,8 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 		}
 	}
 
-	httpRoute := topology.MustAccessObject(httpRouteNode, &gatewayv1.HTTPRoute{})
-
 	var hostNames []string
-	for _, hostName := range httpRoute.Spec.Hostnames {
+	for _, hostName := range hostnames {
 		hostNames = append(hostNames, string(hostName))
 	}
 	hostNamesOutput := "None"
@@ -64,66 +71,19 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 		}
 	}
 
-	parentRefsCount := fmt.Sprintf("%d", len(httpRoute.Spec.ParentRefs))
+	parentRefsCount := fmt.Sprintf("%d", len(spec.ParentRefs))
 
-	// Calculate accepted status
-	acceptedStatus := "Unknown"
-	acceptedCount := 0
-	totalParents := len(httpRoute.Status.Parents)
-
-	for _, parentStatus := range httpRoute.Status.Parents {
-		for _, condition := range parentStatus.Conditions {
-			if condition.Type == "Accepted" && condition.Status == "True" {
-				acceptedCount++
-				break
-			}
-		}
-	}
-
-	if totalParents > 0 {
-		switch {
-		case acceptedCount == totalParents:
-			acceptedStatus = "True"
-		case acceptedCount > 0:
-			acceptedStatus = "Partial"
-		default:
-			acceptedStatus = "False"
-		}
-	}
-
-	// Calculate resolved status for backend references
-	resolvedStatus := "Unknown"
-	resolvedCount := 0
-
-	for _, parentStatus := range httpRoute.Status.Parents {
-		for _, condition := range parentStatus.Conditions {
-			if condition.Type == "ResolvedRefs" && condition.Status == "True" {
-				resolvedCount++
-				break
-			}
-		}
-	}
-
-	if totalParents > 0 {
-		switch {
-		case acceptedCount == totalParents:
-			acceptedStatus = "True"
-		case acceptedCount > 0:
-			acceptedStatus = "Partial"
-		default:
-			acceptedStatus = "False"
-		}
-	}
+	acceptedStatus, resolvedStatus := routeAcceptedAndResolvedStatus(status.Parents)
 
 	age := "<unknown>"
-	creationTimestamp := httpRoute.GetCreationTimestamp()
+	creationTimestamp := routeNode.Object.GetCreationTimestamp()
 	if !creationTimestamp.IsZero() {
 		age = duration.HumanDuration(p.Clock.Since(creationTimestamp.Time))
 	}
 
-	row := append(rowPrefixNamespaced(httpRoute, p.AllNamespaces), hostNamesOutput, parentRefsCount, acceptedStatus, resolvedStatus, age)
+	row := append(rowPrefixNamespaced(routeNode.Object, p.AllNamespaces), hostNamesOutput, parentRefsCount, acceptedStatus, resolvedStatus, age)
 	if p.OutputFormat == OutputFormatWide {
-		policiesMap, err := directlyattachedpolicy.Access(httpRouteNode)
+		policiesMap, err := directlyattachedpolicy.Access(routeNode)
 		if err != nil {
 			return err
 		}
@@ -135,14 +95,19 @@ func (p *TablePrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer)
 }
 
 func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.Writer) error {
+	httpRoute := topology.MustAccessObject(httpRouteNode, &gatewayv1.HTTPRoute{})
+	return p.printRoute(httpRouteNode, w, httpRoute.ObjectMeta, httpRoute.Spec, httpRoute.Status)
+}
+
+// printRoute describes a Route of any kind. The spec and status are printed
+// as-is, so they are passed untyped.
+func (p *DescriptionPrinter) printRoute(routeNode *topology.Node, w io.Writer, objectMeta metav1.ObjectMeta, spec, status any) error {
 	if p.printSeparator {
 		fmt.Fprintf(w, "\n\n")
 	}
 	p.printSeparator = true
 
-	httpRoute := topology.MustAccessObject(httpRouteNode, &gatewayv1.HTTPRoute{})
-
-	metadata := httpRoute.ObjectMeta.DeepCopy()
+	metadata := objectMeta.DeepCopy()
 	metadata.Labels = nil
 	metadata.Annotations = nil
 	metadata.Name = ""
@@ -150,19 +115,19 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	metadata.ManagedFields = nil
 
 	pairs := []*DescriberKV{
-		{"Name", httpRoute.GetName()},
-		{"Namespace", httpRoute.Namespace},
-		{"Label", httpRoute.Labels},
-		{"Annotations", httpRoute.Annotations},
-		{"APIVersion", httpRoute.APIVersion},
-		{"Kind", httpRoute.Kind},
+		{"Name", objectMeta.Name},
+		{"Namespace", objectMeta.Namespace},
+		{"Label", objectMeta.Labels},
+		{"Annotations", objectMeta.Annotations},
+		{"APIVersion", routeNode.Object.GetAPIVersion()},
+		{"Kind", routeNode.Object.GetKind()},
 		{"Metadata", metadata},
-		{"Spec", httpRoute.Spec},
-		{"Status", httpRoute.Status},
+		{"Spec", spec},
+		{"Status", status},
 	}
 
 	// DirectlyAttachedPolicies
-	policiesMap, err := directlyattachedpolicy.Access(httpRouteNode)
+	policiesMap, err := directlyattachedpolicy.Access(routeNode)
 	if err != nil {
 		return err
 	}
@@ -170,20 +135,20 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	pairs = append(pairs, &DescriberKV{Key: "DirectlyAttachedPolicies", Value: convertPoliciesToRefsTable(policies, false)})
 
 	// InheritedPolicies
-	effectivePolicies, err := gatewayeffectivepolicy.Access(httpRouteNode)
+	effectivePolicies, err := gatewayeffectivepolicy.Access(routeNode)
 	if err != nil {
 		return err
 	}
-	policies = policymanager.ConvertPoliciesMapToSlice(effectivePolicies.HTTPRouteInheritedPolicies)
+	policies = policymanager.ConvertPoliciesMapToSlice(effectivePolicies.RouteInheritedPolicies)
 	pairs = append(pairs, &DescriberKV{Key: "InheritedPolicies", Value: convertPoliciesToRefsTable(policies, true)})
 
 	// EffectivePolicies
-	if len(effectivePolicies.HTTPRouteEffectivePolicies) != 0 {
-		pairs = append(pairs, &DescriberKV{Key: "EffectivePolicies", Value: effectivePolicies.HTTPRouteEffectivePolicies})
+	if len(effectivePolicies.RouteEffectivePolicies) != 0 {
+		pairs = append(pairs, &DescriberKV{Key: "EffectivePolicies", Value: effectivePolicies.RouteEffectivePolicies})
 	}
 
 	// Analysis
-	analysisErrors, err := extensionutils.AggregateAnalysisErrors(httpRouteNode)
+	analysisErrors, err := extensionutils.AggregateAnalysisErrors(routeNode)
 	if err != nil {
 		return err
 	}
@@ -192,7 +157,7 @@ func (p *DescriptionPrinter) printHTTPRoute(httpRouteNode *topology.Node, w io.W
 	}
 
 	// Events
-	events, err := p.EventFetcher.FetchEventsFor(httpRoute)
+	events, err := p.EventFetcher.FetchEventsFor(routeNode.Object)
 	if err != nil {
 		return err
 	}

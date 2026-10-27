@@ -22,8 +22,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/gwctl/pkg/common"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestDescribe(t *testing.T) {
@@ -153,6 +156,58 @@ TCPRoute   ns2/my-tcproute
 			want := common.MultiLine(strings.TrimPrefix(tc.want, "\n"))
 			if diff := cmp.Diff(want, got, common.MultiLineTransformer); diff != "" {
 				t.Fatalf("Unexpected diff:\n\ngot =\n\n%v\n\nwant =\n\n%v\n\ndiff (-want, +got) =\n\n%v", got, want, common.MultiLine(diff))
+			}
+		})
+	}
+}
+
+func TestRouteAcceptedAndResolvedStatus(t *testing.T) {
+	parent := func(accepted, resolved metav1.ConditionStatus) gatewayv1.RouteParentStatus {
+		return gatewayv1.RouteParentStatus{Conditions: []metav1.Condition{
+			{Type: "Accepted", Status: accepted},
+			{Type: "ResolvedRefs", Status: resolved},
+		}}
+	}
+
+	testCases := []struct {
+		name         string
+		parents      []gatewayv1.RouteParentStatus
+		wantAccepted string
+		wantResolved string
+	}{
+		{
+			name:         "no parents",
+			wantAccepted: "Unknown",
+			wantResolved: "Unknown",
+		},
+		{
+			name:         "accepted but unresolved",
+			parents:      []gatewayv1.RouteParentStatus{parent(metav1.ConditionTrue, metav1.ConditionFalse)},
+			wantAccepted: "True",
+			wantResolved: "False",
+		},
+		{
+			name: "partially accepted, resolved everywhere",
+			parents: []gatewayv1.RouteParentStatus{
+				parent(metav1.ConditionTrue, metav1.ConditionTrue),
+				parent(metav1.ConditionFalse, metav1.ConditionTrue),
+			},
+			wantAccepted: "Partial",
+			wantResolved: "True",
+		},
+		{
+			name:         "conditions missing",
+			parents:      []gatewayv1.RouteParentStatus{{}},
+			wantAccepted: "False",
+			wantResolved: "False",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotAccepted, gotResolved := routeAcceptedAndResolvedStatus(tc.parents)
+			if gotAccepted != tc.wantAccepted || gotResolved != tc.wantResolved {
+				t.Errorf("got (%q, %q), want (%q, %q)", gotAccepted, gotResolved, tc.wantAccepted, tc.wantResolved)
 			}
 		})
 	}

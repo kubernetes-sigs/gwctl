@@ -39,7 +39,7 @@ func NewExtension() *Extension {
 	return &Extension{}
 }
 
-// Extension calculates the effective policies for all Gateways, HTTPRoutes, and
+// Extension calculates the effective policies for all Gateways, Routes, and
 // Backends in the Graph.
 func (a *Extension) Execute(graph *topology.Graph) error {
 	graph.RemoveMetadata(extensionName)
@@ -50,12 +50,12 @@ func (a *Extension) Execute(graph *topology.Graph) error {
 }
 
 // calculateInheritedPolicies calculates the inherited polices for all Gateways,
-// HTTRoutes, and Backends in the Graph.
+// Routes, and Backends in the Graph.
 func (a *Extension) calculateInheritedPolicies(graph *topology.Graph) error {
 	if err := a.calculateInheritedPoliciesForGateways(graph); err != nil {
 		return err
 	}
-	if err := a.calculateInheritedPoliciesForHTTPRoutes(graph); err != nil {
+	if err := a.calculateInheritedPoliciesForRoutes(graph); err != nil {
 		return err
 	}
 	if err := a.calculateInheritedPoliciesForBackends(graph); err != nil {
@@ -95,42 +95,44 @@ func (a *Extension) calculateInheritedPoliciesForGateways(graph *topology.Graph)
 	return nil
 }
 
-// calculateInheritedPoliciesForHTTPRoutes calculates the inherited policies for
-// all HTTPRoutes present in the Graph.
-func (a *Extension) calculateInheritedPoliciesForHTTPRoutes(graph *topology.Graph) error {
-	for _, httpRouteNode := range graph.Nodes[common.HTTPRouteGK] {
-		result := make(map[common.GKNN]*policymanager.Policy)
+// calculateInheritedPoliciesForRoutes calculates the inherited policies for
+// all Routes present in the Graph.
+func (a *Extension) calculateInheritedPoliciesForRoutes(graph *topology.Graph) error {
+	for _, routeGK := range common.RouteGKs {
+		for _, routeNode := range graph.Nodes[routeGK] {
+			result := make(map[common.GKNN]*policymanager.Policy)
 
-		// Policies inherited from HTTPRoute's namespace.
-		namespaceNode := topologygw.HTTPRouteNode(httpRouteNode).Namespace()
-		if namespaceNode != nil {
-			namespacePoliciesMap, err := directlyattachedpolicy.Access(namespaceNode)
-			if err != nil {
-				return err
+			// Policies inherited from Route's namespace.
+			namespaceNode := topologygw.RouteNode(routeNode).Namespace()
+			if namespaceNode != nil {
+				namespacePoliciesMap, err := directlyattachedpolicy.Access(namespaceNode)
+				if err != nil {
+					return err
+				}
+				maps.Copy(result, filterInheritablePolicies(namespacePoliciesMap))
 			}
-			maps.Copy(result, filterInheritablePolicies(namespacePoliciesMap))
+
+			// Policies inherited from Gateways.
+			for _, gatewayNode := range topologygw.RouteNode(routeNode).Gateways() {
+				// Add policies inherited by GatewayNode.
+				effPolicyMetadata, err := Access(gatewayNode)
+				if err != nil {
+					return err
+				}
+				if effPolicyMetadata != nil {
+					maps.Copy(result, effPolicyMetadata.GatewayInheritedPolicies)
+				}
+
+				// Add inheritable policies directly applied to GatewayNode.
+				gatewayPoliciesMap, err := directlyattachedpolicy.Access(gatewayNode)
+				if err != nil {
+					return err
+				}
+				maps.Copy(result, filterInheritablePolicies(gatewayPoliciesMap))
+			}
+
+			routeNode.Metadata[extensionName] = &NodeMetadata{RouteInheritedPolicies: result}
 		}
-
-		// Policies inherited from Gateways.
-		for _, gatewayNode := range topologygw.HTTPRouteNode(httpRouteNode).Gateways() {
-			// Add policies inherited by GatewayNode.
-			effPolicyMetadata, err := Access(gatewayNode)
-			if err != nil {
-				return err
-			}
-			if effPolicyMetadata != nil {
-				maps.Copy(result, effPolicyMetadata.GatewayInheritedPolicies)
-			}
-
-			// Add inheritable policies directly applied to GatewayNode.
-			gatewayPoliciesMap, err := directlyattachedpolicy.Access(gatewayNode)
-			if err != nil {
-				return err
-			}
-			maps.Copy(result, filterInheritablePolicies(gatewayPoliciesMap))
-		}
-
-		httpRouteNode.Metadata[extensionName] = &NodeMetadata{HTTPRouteInheritedPolicies: result}
 	}
 	return nil
 }
@@ -151,23 +153,23 @@ func (a *Extension) calculateInheritedPoliciesForBackends(graph *topology.Graph)
 			maps.Copy(result, filterInheritablePolicies(namespacePoliciesMap))
 		}
 
-		// Policies inherited from HTTPRoutes.
-		for _, httpRouteNode := range topologygw.BackendNode(backendNode).HTTPRoutes() {
-			// Add policies inherited by HTTPRouteNode.
-			effPolicyMetadata, err := Access(httpRouteNode)
+		// Policies inherited from Routes.
+		for _, routeNode := range topologygw.BackendNode(backendNode).Routes() {
+			// Add policies inherited by RouteNode.
+			effPolicyMetadata, err := Access(routeNode)
 			if err != nil {
 				return err
 			}
 			if effPolicyMetadata != nil {
-				maps.Copy(result, effPolicyMetadata.HTTPRouteInheritedPolicies)
+				maps.Copy(result, effPolicyMetadata.RouteInheritedPolicies)
 			}
 
-			// Add inheritable policies directly applied to HTTPRouteNode.
-			httpRoutePoliciesMap, err := directlyattachedpolicy.Access(httpRouteNode)
+			// Add inheritable policies directly applied to RouteNode.
+			routePoliciesMap, err := directlyattachedpolicy.Access(routeNode)
 			if err != nil {
 				return err
 			}
-			maps.Copy(result, filterInheritablePolicies(httpRoutePoliciesMap))
+			maps.Copy(result, filterInheritablePolicies(routePoliciesMap))
 		}
 
 		backendNode.Metadata[extensionName] = &NodeMetadata{BackendInheritedPolicies: result}
@@ -192,7 +194,7 @@ func (a *Extension) calculateEffectivePolicies(graph *topology.Graph) error {
 	if err := a.calculateEffectivePoliciesForGateways(graph); err != nil {
 		return err
 	}
-	if err := a.calculateEffectivePoliciesForHTTPRoutes(graph); err != nil {
+	if err := a.calculateEffectivePoliciesForRoutes(graph); err != nil {
 		return err
 	}
 	if err := a.calculateEffectivePoliciesForBackends(graph); err != nil {
@@ -284,82 +286,84 @@ func (a *Extension) calculateEffectivePoliciesForGateways(graph *topology.Graph)
 	return nil
 }
 
-// calculateEffectivePoliciesForHTTPRoutes calculates the effective policies for
-// each HTTPRoute, taking into account policies from different hierarchies
-// (GatewayClass, Namespace, Gateway, and HTTPRoute).
-func (a *Extension) calculateEffectivePoliciesForHTTPRoutes(graph *topology.Graph) error {
-	for _, httpRouteNode := range graph.Nodes[common.HTTPRouteGK] {
-		result := make(map[common.GKNN]map[policymanager.PolicyCrdID]*policymanager.Policy)
+// calculateEffectivePoliciesForRoutes calculates the effective policies for
+// each Route, taking into account policies from different hierarchies
+// (GatewayClass, Namespace, Gateway, and Route).
+func (a *Extension) calculateEffectivePoliciesForRoutes(graph *topology.Graph) error {
+	for _, routeGK := range common.RouteGKs {
+		for _, routeNode := range graph.Nodes[routeGK] {
+			result := make(map[common.GKNN]map[policymanager.PolicyCrdID]*policymanager.Policy)
 
-		namespaceNode := topologygw.HTTPRouteNode(httpRouteNode).Namespace()
-		if namespaceNode == nil {
-			klog.V(3).InfoS("No Namespace node found for HTTPRoute, skipping effective policy calculation", "httpRoute", httpRouteNode.GKNN())
-			continue
-		}
+			namespaceNode := topologygw.RouteNode(routeNode).Namespace()
+			if namespaceNode == nil {
+				klog.V(3).InfoS("No Namespace node found for Route, skipping effective policy calculation", "route", routeNode.GKNN())
+				continue
+			}
 
-		httpRoutePoliciesMap, err := directlyattachedpolicy.Access(httpRouteNode)
-		if err != nil {
-			return err
-		}
-		namespacePoliciesMap, err := directlyattachedpolicy.Access(namespaceNode)
-		if err != nil {
-			return err
-		}
-
-		// Step 1: Aggregate all policies of the HTTPRoute and the
-		// HTTPRoute-namespace.
-		httpRoutePolicies := policymanager.ConvertPoliciesMapToSlice(filterInheritablePolicies(httpRoutePoliciesMap))
-		httpRouteNamespacePolicies := policymanager.ConvertPoliciesMapToSlice(filterInheritablePolicies(namespacePoliciesMap))
-
-		// Step 2: Merge HTTPRoute and HTTPRoute-namespace policies by their kind.
-		httpRoutePoliciesByKind, err := policymanager.MergePoliciesOfSimilarKind(httpRoutePolicies)
-		if err != nil {
-			return err
-		}
-		httpRouteNamespacePoliciesByKind, err := policymanager.MergePoliciesOfSimilarKind(httpRouteNamespacePolicies)
-		if err != nil {
-			return err
-		}
-
-		// Step 3: Loop through all Gateways and merge policies for each Gateway.
-		// End result is we get policies partitioned by each Gateway.
-		for gatewayGKNN, gatewayNode := range topologygw.HTTPRouteNode(httpRouteNode).Gateways() {
-			gatewayNodeMetadata, err := Access(gatewayNode) //nolint:govet
+			routePoliciesMap, err := directlyattachedpolicy.Access(routeNode)
 			if err != nil {
 				return err
 			}
-			gatewayPoliciesByKind := gatewayNodeMetadata.GatewayEffectivePolicies
-
-			// Merge all hierarchial policies.
-			mergedPolicies, err := policymanager.MergePoliciesOfDifferentHierarchy(gatewayPoliciesByKind, httpRouteNamespacePoliciesByKind)
+			namespacePoliciesMap, err := directlyattachedpolicy.Access(namespaceNode)
 			if err != nil {
 				return err
 			}
 
-			mergedPolicies, err = policymanager.MergePoliciesOfDifferentHierarchy(mergedPolicies, httpRoutePoliciesByKind)
+			// Step 1: Aggregate all policies of the Route and the
+			// Route-namespace.
+			routePolicies := policymanager.ConvertPoliciesMapToSlice(filterInheritablePolicies(routePoliciesMap))
+			routeNamespacePolicies := policymanager.ConvertPoliciesMapToSlice(filterInheritablePolicies(namespacePoliciesMap))
+
+			// Step 2: Merge Route and Route-namespace policies by their kind.
+			routePoliciesByKind, err := policymanager.MergePoliciesOfSimilarKind(routePolicies)
+			if err != nil {
+				return err
+			}
+			routeNamespacePoliciesByKind, err := policymanager.MergePoliciesOfSimilarKind(routeNamespacePolicies)
 			if err != nil {
 				return err
 			}
 
-			result[gatewayGKNN] = mergedPolicies
-		}
+			// Step 3: Loop through all Gateways and merge policies for each Gateway.
+			// End result is we get policies partitioned by each Gateway.
+			for gatewayGKNN, gatewayNode := range topologygw.RouteNode(routeNode).Gateways() {
+				gatewayNodeMetadata, err := Access(gatewayNode) //nolint:govet
+				if err != nil {
+					return err
+				}
+				gatewayPoliciesByKind := gatewayNodeMetadata.GatewayEffectivePolicies
 
-		httpRouteNodeMetadata, err := Access(httpRouteNode)
-		if err != nil {
-			return err
+				// Merge all hierarchial policies.
+				mergedPolicies, err := policymanager.MergePoliciesOfDifferentHierarchy(gatewayPoliciesByKind, routeNamespacePoliciesByKind)
+				if err != nil {
+					return err
+				}
+
+				mergedPolicies, err = policymanager.MergePoliciesOfDifferentHierarchy(mergedPolicies, routePoliciesByKind)
+				if err != nil {
+					return err
+				}
+
+				result[gatewayGKNN] = mergedPolicies
+			}
+
+			routeNodeMetadata, err := Access(routeNode)
+			if err != nil {
+				return err
+			}
+			if routeNodeMetadata == nil {
+				routeNodeMetadata = &NodeMetadata{}
+				routeNode.Metadata[extensionName] = routeNodeMetadata
+			}
+			routeNodeMetadata.RouteEffectivePolicies = result
 		}
-		if httpRouteNodeMetadata == nil {
-			httpRouteNodeMetadata = &NodeMetadata{}
-			httpRouteNode.Metadata[extensionName] = httpRouteNodeMetadata
-		}
-		httpRouteNodeMetadata.HTTPRouteEffectivePolicies = result
 	}
 	return nil
 }
 
 // calculateEffectivePoliciesForBackends calculates the effective policies for
 // each Backend, considering policies from different hierarchies (GatewayClass,
-// Namespace, Gateway, HTTPRoute, and Backend).
+// Namespace, Gateway, Route, and Backend).
 func (a *Extension) calculateEffectivePoliciesForBackends(graph *topology.Graph) error {
 	for _, backendNode := range graph.Nodes[common.ServiceGK] {
 		result := make(map[common.GKNN]map[policymanager.PolicyCrdID]*policymanager.Policy)
@@ -393,20 +397,20 @@ func (a *Extension) calculateEffectivePoliciesForBackends(graph *topology.Graph)
 			return err
 		}
 
-		// Step 3: Loop through all HTTPRoutes and get their effective policies. Merge
+		// Step 3: Loop through all Routes and get their effective policies. Merge
 		// effective policies such that we get policies partitioned by Gateway.
-		for _, httpRouteNode := range topologygw.BackendNode(backendNode).HTTPRoutes() {
-			httpRouteNodeMetadata, err := Access(httpRouteNode) //nolint:govet
+		for _, routeNode := range topologygw.BackendNode(backendNode).Routes() {
+			routeNodeMetadata, err := Access(routeNode) //nolint:govet
 			if err != nil {
 				return err
 			}
-			if httpRouteNodeMetadata == nil {
-				klog.V(3).InfoS("No effective policy metadata found for HTTPRoute, skipping", "httpRoute", httpRouteNode.GKNN())
+			if routeNodeMetadata == nil {
+				klog.V(3).InfoS("No effective policy metadata found for Route, skipping", "route", routeNode.GKNN())
 				continue
 			}
-			httpRoutePoliciesByGateway := httpRouteNodeMetadata.HTTPRouteEffectivePolicies
+			routePoliciesByGateway := routeNodeMetadata.RouteEffectivePolicies
 
-			for gatewayID, policies := range httpRoutePoliciesByGateway {
+			for gatewayID, policies := range routePoliciesByGateway {
 				result[gatewayID], err = policymanager.MergePoliciesOfSameHierarchy(result[gatewayID], policies)
 				if err != nil {
 					return err
@@ -447,13 +451,13 @@ func (a *Extension) calculateEffectivePoliciesForBackends(graph *topology.Graph)
 }
 
 type NodeMetadata struct {
-	GatewayInheritedPolicies   map[common.GKNN]*policymanager.Policy
-	HTTPRouteInheritedPolicies map[common.GKNN]*policymanager.Policy
-	BackendInheritedPolicies   map[common.GKNN]*policymanager.Policy
+	GatewayInheritedPolicies map[common.GKNN]*policymanager.Policy
+	RouteInheritedPolicies   map[common.GKNN]*policymanager.Policy
+	BackendInheritedPolicies map[common.GKNN]*policymanager.Policy
 
-	GatewayEffectivePolicies   map[policymanager.PolicyCrdID]*policymanager.Policy
-	HTTPRouteEffectivePolicies map[common.GKNN]map[policymanager.PolicyCrdID]*policymanager.Policy
-	BackendEffectivePolicies   map[common.GKNN]map[policymanager.PolicyCrdID]*policymanager.Policy
+	GatewayEffectivePolicies map[policymanager.PolicyCrdID]*policymanager.Policy
+	RouteEffectivePolicies   map[common.GKNN]map[policymanager.PolicyCrdID]*policymanager.Policy
+	BackendEffectivePolicies map[common.GKNN]map[policymanager.PolicyCrdID]*policymanager.Policy
 }
 
 func Access(node *topology.Node) (*NodeMetadata, error) {

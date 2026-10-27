@@ -36,6 +36,8 @@ import (
 
 	"sigs.k8s.io/gwctl/pkg/common"
 	"sigs.k8s.io/gwctl/pkg/policymanager"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // DescriberKV stores key-value pairs that are used with Describing a resource.
@@ -144,6 +146,33 @@ func rowPrefixNamespaced(obj metav1.Object, allNamespaces bool) []string {
 		return []string{obj.GetNamespace(), obj.GetName()}
 	}
 	return []string{obj.GetName()}
+}
+
+// routeAcceptedAndResolvedStatus summarizes the Accepted and ResolvedRefs
+// conditions of a Route across all of its parents.
+func routeAcceptedAndResolvedStatus(parents []gatewayv1.RouteParentStatus) (acceptedStatus, resolvedStatus string) {
+	summarize := func(conditionType string) string {
+		count := 0
+		for _, parentStatus := range parents {
+			for _, condition := range parentStatus.Conditions {
+				if condition.Type == conditionType && condition.Status == "True" {
+					count++
+					break
+				}
+			}
+		}
+		switch {
+		case len(parents) == 0:
+			return "Unknown"
+		case count == len(parents):
+			return "True"
+		case count > 0:
+			return "Partial"
+		default:
+			return "False"
+		}
+	}
+	return summarize("Accepted"), summarize("ResolvedRefs")
 }
 
 func convertEventsSliceToTable(events []*corev1.Event, clock clock.Clock) *Table {
