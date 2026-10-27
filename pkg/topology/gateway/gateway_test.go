@@ -17,6 +17,7 @@ limitations under the License.
 package gateway
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -90,6 +91,53 @@ func TestGRPCRouteParentGatewaysRelationSkipsNonGatewayParents(t *testing.T) {
 			Namespace: "ns-1",
 			Name:      "explicit-gateway",
 		},
+	}
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("unexpected neighbors (-want, +got):\n%s", diff)
+	}
+}
+
+// RequestMirror filters reference a backend outside of BackendRefs; the
+// relation must surface it so the mirrored Service shows up in the topology.
+func TestGRPCRouteChildBackendRefsRelationIncludesRequestMirror(t *testing.T) {
+	grpcRoute := &gatewayv1.GRPCRoute{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: gatewayv1.GroupVersion.String(),
+			Kind:       "GRPCRoute",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "grpc-route",
+			Namespace: "ns-1",
+		},
+		Spec: gatewayv1.GRPCRouteSpec{
+			Rules: []gatewayv1.GRPCRouteRule{{
+				BackendRefs: []gatewayv1.GRPCBackendRef{{
+					BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{Name: "primary-svc"},
+					},
+				}},
+				Filters: []gatewayv1.GRPCRouteFilter{{
+					Type: gatewayv1.GRPCRouteFilterRequestMirror,
+					RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+						BackendRef: gatewayv1.BackendObjectReference{Name: "mirror-svc"},
+					},
+				}},
+			}},
+		},
+	}
+
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(grpcRoute)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := GRPCRouteChildBackendRefsRelation.NeighborFunc(&unstructured.Unstructured{Object: obj})
+	sort.Slice(got, func(i, j int) bool { return got[i].Name < got[j].Name })
+
+	want := []common.GKNN{
+		{Kind: common.ServiceGK.Kind, Namespace: "ns-1", Name: "mirror-svc"},
+		{Kind: common.ServiceGK.Kind, Namespace: "ns-1", Name: "primary-svc"},
 	}
 
 	if diff := cmp.Diff(want, got); diff != "" {
