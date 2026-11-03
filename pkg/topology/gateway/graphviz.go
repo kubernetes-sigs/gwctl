@@ -119,12 +119,12 @@ func ToDot(gwctlGraph *topology.Graph) (string, error) {
 
 				dotToNode := dotNodeMap[toNodeGKNN]
 
-				// If this is an edge from an HTTPRoute to a Service, then
+				// If this is an edge from a Route to a Service, then
 				// reverse the direction of the edge (to affect the rank), and
 				// then reverse the display again to show the correct direction.
 				// The end result being that Services now get assigned the
 				// correct rank.
-				reverse := fromNode.GKNN().GroupKind() == common.HTTPRouteGK && toNodeGKNN.GroupKind() == common.ServiceGK
+				reverse := slices.Contains(common.RouteGKs, fromNode.GKNN().GroupKind()) && toNodeGKNN.GroupKind() == common.ServiceGK
 				u, v := dotFromNode, dotToNode
 				if reverse {
 					u, v = v, u
@@ -152,7 +152,7 @@ func mapNodeColor(node *topology.Node) string {
 		return "#e5e9f0"
 	case common.GatewayGK:
 		return "#ebcb8b"
-	case common.HTTPRouteGK:
+	case common.HTTPRouteGK, common.GRPCRouteGK:
 		return "#a3be8c"
 	case common.ServiceGK:
 		return "#88c0d0"
