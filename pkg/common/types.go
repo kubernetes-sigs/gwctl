@@ -36,11 +36,18 @@ var (
 	GatewayClassGK   schema.GroupKind = schema.GroupKind{Group: gatewayv1.GroupName, Kind: "GatewayClass"}
 	GatewayGK        schema.GroupKind = schema.GroupKind{Group: gatewayv1.GroupName, Kind: "Gateway"}
 	HTTPRouteGK      schema.GroupKind = schema.GroupKind{Group: gatewayv1.GroupName, Kind: "HTTPRoute"}
+	GRPCRouteGK      schema.GroupKind = schema.GroupKind{Group: gatewayv1.GroupName, Kind: "GRPCRoute"}
 	NamespaceGK      schema.GroupKind = schema.GroupKind{Group: corev1.GroupName, Kind: "Namespace"}
 	ServiceGK        schema.GroupKind = schema.GroupKind{Group: corev1.GroupName, Kind: "Service"}
 	ReferenceGrantGK schema.GroupKind = schema.GroupKind{Group: gatewayv1beta1.GroupName, Kind: "ReferenceGrant"}
 	PolicyGK         schema.GroupKind = schema.GroupKind{Group: gwctlPolicyGroup, Kind: "Policy"}
 	PolicyCRDGK      schema.GroupKind = schema.GroupKind{Group: gwctlPolicyGroup, Kind: "PolicyCRD"}
+
+	// RouteGKs lists the Route kinds that gwctl understands. Code that
+	// operates on Routes generically (topology relations, policy
+	// calculation, validation) should iterate over this list instead of
+	// assuming HTTPRoute.
+	RouteGKs = []schema.GroupKind{HTTPRouteGK, GRPCRouteGK}
 )
 
 type GKNN struct {
