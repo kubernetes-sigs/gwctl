@@ -17,15 +17,21 @@ limitations under the License.
 package get
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/kubectl/pkg/util/interrupt"
 	"k8s.io/utils/clock"
 
 	"sigs.k8s.io/gwctl/pkg/common"
@@ -73,6 +79,7 @@ func NewCmd(factory common.Factory, iostreams genericiooptions.IOStreams, isDesc
 	if !isDescribe {
 		printableAllowedFormats := strings.Join(printer.AllowedOutputFormatsForHelp(), ",")
 		cmd.Flags().StringVarP(&flags.outputFormat, "output", "o", "", fmt.Sprintf("Output format. Must be one of: %v", printableAllowedFormats))
+		cmd.Flags().BoolVarP(&flags.watch, "watch", "w", false, "After listing/getting the requested object, watch for changes.")
 
 		flags.forFlag.AddFlag(cmd.Flags())
 	}
@@ -84,6 +91,7 @@ func NewCmd(factory common.Factory, iostreams genericiooptions.IOStreams, isDesc
 type getFlags struct {
 	resourceBuilderFlags *genericclioptions.ResourceBuilderFlags
 	outputFormat         string
+	watch                bool
 	forFlag              gwctlflags.ForFlag
 }
 
@@ -105,6 +113,7 @@ func (f *getFlags) ToOptions(args []string, factory common.Factory, iostreams ge
 		IOStreams:     iostreams,
 		allNamespaces: *f.resourceBuilderFlags.AllNamespaces,
 		labelSelector: *f.resourceBuilderFlags.LabelSelector,
+		watch:         f.watch,
 	}
 
 	var err error
@@ -123,6 +132,9 @@ func (f *getFlags) ToOptions(args []string, factory common.Factory, iostreams ge
 	if err != nil {
 		return nil, err
 	}
+	if err := o.validateWatch(); err != nil {
+		return nil, err
+	}
 
 	return o, nil
 }
@@ -136,6 +148,7 @@ type getOptions struct {
 	namespace     string
 	labelSelector string
 	output        printer.OutputFormat
+	watch         bool
 
 	resourceTypes []string
 	hasPolicy     bool
@@ -145,6 +158,10 @@ type getOptions struct {
 }
 
 func (o *getOptions) Run(args []string) error {
+	if o.watch {
+		return o.watchResources(args)
+	}
+
 	needsExtensions := o.isDescribe || o.output == printer.OutputFormatWide || o.output == printer.OutputFormatGraph
 
 	// Initialize PolicyManager if needed (by either non-policy path extensions or policy path)
@@ -186,25 +203,14 @@ func (o *getOptions) Run(args []string) error {
 			sources = append(sources, &unstructured.Unstructured{Object: obj})
 		}
 
-		builder := topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).StartFrom(sources)
+		var graph *topology.Graph
 		if needsExtensions {
-			builder = builder.UseRelationships(topologygw.AllRelations)
+			graph, err = o.buildExtendedGraph(sources, pm)
+		} else {
+			graph, err = topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).StartFrom(sources).Build()
 		}
-		graph, err := builder.Build()
 		if err != nil {
 			return err
-		}
-
-		if needsExtensions {
-			err := extension.ExecuteAll(graph, //nolint:govet
-				directlyattachedpolicy.NewExtension(pm),
-				gatewayeffectivepolicy.NewExtension(),
-				refgrantvalidator.NewExtension(refgrantvalidator.NewDefaultReferenceGrantFetcher(o.factory)),
-				notfoundrefvalidator.NewExtension(),
-			)
-			if err != nil {
-				return err
-			}
 		}
 
 		if o.output == printer.OutputFormatGraph {
@@ -232,6 +238,276 @@ func (o *getOptions) Run(args []string) error {
 	}
 
 	return o.printNodes(allNodes)
+}
+
+func (o *getOptions) validateWatch() error {
+	if !o.watch {
+		return nil
+	}
+	if o.isDescribe {
+		return fmt.Errorf("--watch is not supported with describe; use get instead")
+	}
+
+	typeCount := len(o.resourceTypes)
+	if o.hasPolicy {
+		typeCount++
+	}
+	if o.hasPolicyCRD {
+		typeCount++
+	}
+	if typeCount > 1 {
+		return fmt.Errorf("you may only specify a single resource type when watching")
+	}
+	if o.hasPolicy || o.hasPolicyCRD {
+		return fmt.Errorf("watch is not supported for policy/policycrd types")
+	}
+	if o.output != printer.OutputFormatTable && o.output != printer.OutputFormatWide {
+		return fmt.Errorf("--watch is not supported with output format %q", o.output)
+	}
+	return nil
+}
+
+func (o *getOptions) watchResources(args []string) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// The interrupt handler covers the whole command, not just the watch loop,
+	// so a termination signal is honored while the initial fetch or the watch
+	// establishment is still in flight. It has to act from the signal handling
+	// goroutine: those calls are not context-aware, so canceling ctx cannot
+	// unblock them, and waiting for them to return would leave the command
+	// unresponsive for as long as the API server takes to answer. This is the
+	// same handler, used the same way, as kubectl get --watch.
+	return interrupt.New(nil, cancel).Run(func() error {
+		return o.runWatch(ctx, args)
+	})
+}
+
+func (o *getOptions) runWatch(ctx context.Context, args []string) error {
+	var pm *policymanager.PolicyManager
+	if o.output == printer.OutputFormatWide {
+		pm = policymanager.New(common.NewDefaultGroupKindFetcher(o.factory))
+		if err := pm.Init(); err != nil {
+			return err
+		}
+	}
+
+	nonPolicyArgs := make([]string, len(args))
+	nonPolicyArgs[0] = strings.Join(o.resourceTypes, ",")
+	copy(nonPolicyArgs[1:], args[1:])
+
+	result := o.factory.NewBuilder().
+		Unstructured().
+		NamespaceParam(o.namespace).DefaultNamespace().AllNamespaces(o.allNamespaces).
+		ResourceTypeOrNameArgs(true, nonPolicyArgs...).
+		SingleResourceType().
+		LabelSelectorParam(o.labelSelector).
+		Latest().
+		ContinueOnError().
+		Do()
+	if err := result.Err(); err != nil {
+		return err
+	}
+	if _, err := result.Infos(); err != nil {
+		return err
+	}
+
+	obj, err := result.Object()
+	if err != nil {
+		return err
+	}
+	objects, resourceVersion, err := extractInitialObjects(obj)
+	if err != nil {
+		return err
+	}
+
+	replayed, err := replayedIdentity(obj)
+	if err != nil {
+		return err
+	}
+
+	p := &printer.TablePrinter{PrinterOptions: printer.PrinterOptions{
+		OutputFormat:  o.output,
+		Clock:         clock.RealClock{},
+		AllNamespaces: o.allNamespaces,
+	}}
+	nodes, err := o.buildWatchNodes(objects, pm)
+	if err != nil {
+		return err
+	}
+	if err = o.printWatchNodes(p, topology.SortedNodes(nodes)); err != nil {
+		return err
+	}
+
+	watcher, err := result.Watch(resourceVersion)
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case event, ok := <-watcher.ResultChan():
+			if !ok {
+				fmt.Fprintln(o.ErrOut, "server closed the watch stream; exiting")
+				return nil
+			}
+
+			switch event.Type {
+			case watch.Bookmark:
+				// Bookmarks only carry a resourceVersion, so there is nothing
+				// to print for them.
+			case watch.Added, watch.Modified, watch.Deleted:
+				if isReplayOf(event, replayed) {
+					continue
+				}
+				nodes, err := o.buildWatchNodes([]runtime.Object{event.Object}, pm)
+				if err != nil {
+					return err
+				}
+				if err := o.printWatchNodes(p, nodes); err != nil {
+					return err
+				}
+			case watch.Error:
+				return apierrors.FromObject(event.Object)
+			}
+		}
+	}
+}
+
+// printWatchNodes prints nodes as a single batch of watch output, so that the
+// rows are flushed together and are visible as soon as they are written.
+func (o *getOptions) printWatchNodes(p *printer.TablePrinter, nodes []*topology.Node) error {
+	for _, node := range nodes {
+		if err := p.PrintNode(node, o.Out); err != nil {
+			return err
+		}
+	}
+	return p.FlushWatch(o.Out)
+}
+
+// buildExtendedGraph builds a topology graph from sources using all gateway
+// relationships and runs the full set of extensions over it.
+func (o *getOptions) buildExtendedGraph(sources []*unstructured.Unstructured, pm *policymanager.PolicyManager) (*topology.Graph, error) {
+	graph, err := topology.NewBuilder(common.NewDefaultGroupKindFetcher(o.factory)).
+		StartFrom(sources).
+		UseRelationships(topologygw.AllRelations).
+		Build()
+	if err != nil {
+		return nil, err
+	}
+	if err := extension.ExecuteAll(graph, //nolint:govet
+		directlyattachedpolicy.NewExtension(pm),
+		gatewayeffectivepolicy.NewExtension(),
+		refgrantvalidator.NewExtension(refgrantvalidator.NewDefaultReferenceGrantFetcher(o.factory)),
+		notfoundrefvalidator.NewExtension(),
+	); err != nil {
+		return nil, err
+	}
+	return graph, nil
+}
+
+// extractInitialObjects returns the objects making up the initial output of a
+// watch, along with the resourceVersion the watch should be started from.
+func extractInitialObjects(obj runtime.Object) ([]runtime.Object, string, error) {
+	if !meta.IsListType(obj) {
+		// Watching a single object from resourceVersion 0 starts the watch at
+		// ~now, which is guaranteed to be inside the server's watch window. The
+		// resourceVersion of the object itself is not: it can predate
+		// everything the watch cache still holds, in which case the server
+		// rejects the watch with "too old resource version". The cost of
+		// starting at ~now is a replayed ADDED event for the current state,
+		// which the caller filters out.
+		return []runtime.Object{obj}, "0", nil
+	}
+
+	// The resourceVersion of a list is ~now, and a watch started from it
+	// replays nothing.
+	resourceVersion, err := meta.NewAccessor().ResourceVersion(obj)
+	if err != nil {
+		return nil, "", err
+	}
+	objects, err := meta.ExtractList(obj)
+	if err != nil {
+		return nil, "", err
+	}
+	return objects, resourceVersion, nil
+}
+
+// objectIdentity identifies one specific version of one specific object.
+type objectIdentity struct {
+	uid             types.UID
+	resourceVersion string
+}
+
+func identityOf(obj runtime.Object) (objectIdentity, error) {
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return objectIdentity{}, err
+	}
+	return objectIdentity{
+		uid:             accessor.GetUID(),
+		resourceVersion: accessor.GetResourceVersion(),
+	}, nil
+}
+
+// replayedIdentity returns the identity of the object the server will replay as
+// a synthetic ADDED event once the watch is established, or nil when there is
+// nothing to replay. Only a watch on a single named resource replays anything,
+// because it has to start from resourceVersion 0; a watch started from the
+// resourceVersion of a list does not.
+func replayedIdentity(obj runtime.Object) (*objectIdentity, error) {
+	if meta.IsListType(obj) {
+		return nil, nil
+	}
+	identity, err := identityOf(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &identity, nil
+}
+
+// isReplayOf reports whether event is the server replaying an object that has
+// already been printed. Matching on identity, rather than assuming the replay
+// is whichever event happens to arrive first, keeps genuine events visible: an
+// object that was modified, or deleted and re-created, carries a different
+// resourceVersion or UID and is always printed.
+func isReplayOf(event watch.Event, identity *objectIdentity) bool {
+	if identity == nil || event.Type != watch.Added {
+		return false
+	}
+	eventIdentity, err := identityOf(event.Object)
+	if err != nil {
+		return false
+	}
+	return eventIdentity == *identity
+}
+
+func (o *getOptions) buildWatchNodes(objects []runtime.Object, pm *policymanager.PolicyManager) ([]*topology.Node, error) {
+	sources := make([]*unstructured.Unstructured, 0, len(objects))
+	for _, object := range objects {
+		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, &unstructured.Unstructured{Object: obj})
+	}
+
+	if o.output != printer.OutputFormatWide {
+		nodes := make([]*topology.Node, 0, len(sources))
+		for _, source := range sources {
+			nodes = append(nodes, &topology.Node{Object: source})
+		}
+		return nodes, nil
+	}
+
+	graph, err := o.buildExtendedGraph(sources, pm)
+	if err != nil {
+		return nil, err
+	}
+	return graph.Sources, nil
 }
 
 func (o *getOptions) collectPolicyNodes(pm *policymanager.PolicyManager, args []string) ([]*topology.Node, error) {
